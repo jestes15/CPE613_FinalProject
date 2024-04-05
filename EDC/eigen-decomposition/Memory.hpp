@@ -1,10 +1,3 @@
-/*
- * Memory.h
- *
- *  Created on: 15 apr. 2016
- *      Author: dharrison
- */
-
 #ifndef MEMORY_H_
 #define MEMORY_H_
 

@@ -1,10 +1,3 @@
-/*
- * MatrixOps.h
- *
- *  Created on: 15 apr. 2016
- *      Author: dharrison
- */
-
 #ifndef MATRIXOPS_H_
 #define MATRIXOPS_H_
 

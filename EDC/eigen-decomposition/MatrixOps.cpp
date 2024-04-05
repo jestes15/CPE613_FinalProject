@@ -1,10 +1,3 @@
-/*
- * MatrixOps.c
- *
- *  Created on: 15 apr. 2016
- *      Author: dharrison
- */
-
 #include <math.h>
 #include <stdlib.h>
 #include "Memory.hpp"

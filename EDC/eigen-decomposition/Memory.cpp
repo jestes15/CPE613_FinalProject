@@ -1,10 +1,3 @@
-/*
- * Memory.c
- *
- *  Created on: 14 apr. 2016
- *      Author: dharrison
- */
-
 #include <stdlib.h>
 
 
