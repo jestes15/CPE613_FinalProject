@@ -1,0 +1,15 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+				"/opt/intel/oneapi/mkl/latest/include"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/local/bin/clang",
+            "intelliSenseMode": "linux-clang-x64"
+        }
+    ],
+    "version": 4
+}
