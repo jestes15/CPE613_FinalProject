@@ -24,6 +24,7 @@
 		"*.rex": "rexx",
 		"*.rexx": "rexx",
 		"ccomplex": "cpp",
-		"numbers": "cpp"
+		"numbers": "cpp",
+		"complex": "cpp"
 	}
 }

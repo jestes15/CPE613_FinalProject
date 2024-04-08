@@ -109,15 +109,12 @@ typedef int (*algorithm_t)(const void *, void *, uint32_t);
 
 using namespace std::complex_literals;
 
-// This is used to return and propagate an EXIT_FAILURE return value.
 #define CHECK_RET(ret)                                                                                                 \
     if (ret == EXIT_FAILURE)                                                                                           \
     {                                                                                                                  \
         return EXIT_FAILURE;                                                                                           \
     }
 
-// In case of an erroneous condition, this macro prints the current file and
-// line of an error, a useful error message, and then returns EXIT_FAILURE.
 #define CHECK(condition, err_fmt, err_msg)                                                                             \
     if (condition)                                                                                                     \
     {                                                                                                                  \
@@ -197,7 +194,7 @@ int dft_gpu(cuFloatComplex *x, cuFloatComplex *Y, uint32_t N)
     return EXIT_SUCCESS;
 }
 
-__device__ uint32_t reverse_bits_gpu(uint32_t x)
+__device__ uint32_t reverse(uint32_t x)
 {
     x = ((x & 0xaaaaaaaa) >> 1) | ((x & 0x55555555) << 1);
     x = ((x & 0xcccccccc) >> 2) | ((x & 0x33333333) << 2);
@@ -209,21 +206,21 @@ __device__ uint32_t reverse_bits_gpu(uint32_t x)
 __global__ void fft_kernel(const cuFloatComplex *x, cuFloatComplex *Y, uint32_t N, int logN)
 {
     uint32_t i = threadIdx.x + blockIdx.x * blockDim.x;
-    uint32_t rev;
+    uint32_t index_bits_reversed;
 
-    rev = reverse_bits_gpu(2 * i);
-    rev = rev >> (32 - logN);
-    Y[2 * i] = x[rev];
+    index_bits_reversed = reverse(2 * i);
+    index_bits_reversed = index_bits_reversed >> (32 - logN);
+    Y[2 * i] = x[index_bits_reversed];
 
-    rev = reverse_bits_gpu(2 * i + 1);
-    rev = rev >> (32 - logN);
-    Y[2 * i + 1] = x[rev];
+    index_bits_reversed = reverse(2 * i + 1);
+    index_bits_reversed = index_bits_reversed >> (32 - logN);
+    Y[2 * i + 1] = x[index_bits_reversed];
 
     __syncthreads();
 
     for (int s = 1; s <= logN; s++)
     {
-        int mh = 1 << (s - 1); // 2 ** (s - 1)
+        int mh = 1 << (s - 1);
         int k = threadIdx.x / mh * (1 << s);
         int j = threadIdx.x % mh;
         int kj = k + j;
@@ -335,9 +332,6 @@ int setup_data(std::complex<float> **in, std::complex<float> **out, uint32_t N, 
 
 int setup_gpu(cuFloatComplex **in, cuFloatComplex **out, uint32_t N, int fill_with, int no_sample)
 {
-    // Startup the CUDA runtime.
-    // Without this, most of the runtime is spent on allocating x and Y
-    // large array using the first cudaMalloc call
     void *trash;
     cudaMalloc(&trash, 1);
     cudaFree(trash);
@@ -353,9 +347,6 @@ int setup_gpu(cuFloatComplex **in, cuFloatComplex **out, uint32_t N, int fill_wi
         (*in)[i] = make_cuFloatComplex(fill_with, 0);
     }
 
-    // Set the first part of the input to the sample input
-    // or just fill the array with as many samples as possible if N is smaller than the
-    // number of samples.
     if (!no_sample)
     {
         for (size_t i = 0; i < ((N < sample_size) ? N : sample_size); i++)
@@ -377,32 +368,23 @@ int run(const char *algorithm_name, algorithm_t f, const void *in, void *out, ui
 
 int main(int argc, const char **argv)
 {
-    uint32_t N = 262144;
+    uint32_t N = sample_size;
 
-    // Program options
     int no_sample = false;
     int measure_time = false;
     int fill_with = 0;
     bool no_print = false;
-    char *algorithm = NULL;
 
-    static const char *const usage[] = {
-        "fft [options]",
-        NULL,
-    };
+    cuFloatComplex *in;
+    cuFloatComplex *out;
 
-    std::complex<float> *in;
-    std::complex<float> *out;
-
-    bool gpu = true;
-
-    CHECK_RET(setup_data(&in, &out, N, fill_with, no_sample));
-    CHECK_RET(run("Cooley-Tukey FFT", (algorithm_t)fft, in, out, N));
+    CHECK_RET(setup_gpu(&in, &out, N, fill_with, no_sample));
+    CHECK_RET(run("Cooley-Tukey FFT", (algorithm_t)fft_gpu, in, out, N));
 
     // Print the results
     if (!no_print)
     {
-        show_complex_vector(out, N);
+        show_complex_gpu_vector(out, N);
     }
     free(in);
     free(out);
