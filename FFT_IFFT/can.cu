@@ -125,52 +125,10 @@ using namespace std::complex_literals;
         return EXIT_FAILURE;                                                                                           \
     }
 
-// This macro insures a call to malloc succeeded.
 #define CHECK_MALLOC(p, name) CHECK(!(p), "Failed to allocate %s", name)
 
-// This macro insures a call to a CUDA function succeeded.
 #define CHECK_CUDA(stat) CHECK((stat) != cudaSuccess, "CUDA error %s", cudaGetErrorString(stat))
 
-// dft
-//
-// This function computes the discrete Fourier transform (DFT) of a vector of
-// complex floats using the mathematical definition of the DFT.
-// Computing the output requires O(N^2) operations for input of length N.
-//
-// Please see the function `fft` for a faster implementation.
-//
-// Parameters:
-// x: complex float array that serves as the input
-// Y: complex float array in which to store the DFT of x
-// N: length of the input and output arrays
-//
-// Return value:
-// This function returns 0 if it succeeded, -1 otherwise.
-int dft(const std::complex<float> *x, std::complex<float> *Y, uint32_t N)
-{
-    for (size_t k = 0; k < N; k++)
-    {
-        std::complex<float> sum = 0;
-
-        // Save the value of -2 pi * k / N
-        float c = -2 * M_PI * k / N;
-        for (size_t n = 0; n < N; n++)
-        {
-            // Compute -2 pi * k * n / N
-            float a = c * n;
-
-            // By Euler's formula,
-            // e^ix = cos x + i sin x
-
-            // Compute x[n] * exp(-2i pi * k * n / N)
-            sum = sum + x[n] * (std::cos(a) + 1if * std::sin(a));
-        }
-        Y[k] = sum;
-    }
-    return EXIT_SUCCESS;
-}
-
-// This kernel is used by `dft_gpu`.
 __global__ void dft_kernel(cuFloatComplex *x, cuFloatComplex *Y, uint32_t N)
 {
     // for (size_t k = 0; k < N; k++) {
@@ -198,7 +156,6 @@ __global__ void dft_kernel(cuFloatComplex *x, cuFloatComplex *Y, uint32_t N)
     Y[k] = sum;
 }
 
-// This function computes the DFT on the GPU.
 int dft_gpu(cuFloatComplex *x, cuFloatComplex *Y, uint32_t N)
 {
     cuFloatComplex *x_dev;
@@ -240,23 +197,6 @@ int dft_gpu(cuFloatComplex *x, cuFloatComplex *Y, uint32_t N)
     return EXIT_SUCCESS;
 }
 
-// This function reverses a 32-bit bitstring.
-uint32_t reverse_bits(uint32_t x)
-{
-    // 1. Swap the position of consecutive bits
-    // 2. Swap the position of consecutive pairs of bits
-    // 3. Swap the position of consecutive quads of bits
-    // 4. Continue this until swapping the two consecutive 16-bit parts of x
-    x = ((x & 0xaaaaaaaa) >> 1) | ((x & 0x55555555) << 1);
-    x = ((x & 0xcccccccc) >> 2) | ((x & 0x33333333) << 2);
-    x = ((x & 0xf0f0f0f0) >> 4) | ((x & 0x0f0f0f0f) << 4);
-    x = ((x & 0xff00ff00) >> 8) | ((x & 0x00ff00ff) << 8);
-    return (x >> 16) | (x << 16);
-}
-
-// This function is identical to reverse_bits, but it is specialized to run on
-// the GPU. For compatibility reasons, I did not declare this a __device__
-// __host__ function.
 __device__ uint32_t reverse_bits_gpu(uint32_t x)
 {
     x = ((x & 0xaaaaaaaa) >> 1) | ((x & 0x55555555) << 1);
@@ -266,98 +206,9 @@ __device__ uint32_t reverse_bits_gpu(uint32_t x)
     return (x >> 16) | (x << 16);
 }
 
-// fft
-//
-// This function computes the discrete Fourier transform (DFT) of a vector of
-// complex floats using an iterative version of the Cooley-Tukey fast
-// Fourier transform algorithm (FFT). Computing the output requires
-// O(N log_2 N) operations for input of length N.
-//
-// Parameters:
-// x: complex float array that serves as the input
-// Y: complex float array in which to store the DFT of x
-// N: length of the input and output arrays
-//
-// N must be a power of 2
-//
-// Return value:
-// This function returns 0 if it succeeded, -1 otherwise.
-int fft(const std::complex<float> *x, std::complex<float> *Y, uint32_t N)
-{
-    using namespace std::complex_literals;
-
-    // if N>0 is a power of 2 then
-    // N & (N - 1) = ...01000... & ...00111... = 0
-    // otherwise N & (N - 1) will have a 0 in it
-    if (N & (N - 1))
-    {
-        fprintf(stderr,
-                "N=%u must be a power of 2.  "
-                "This implementation of the Cooley-Tukey FFT algorithm "
-                "does not support input that is not a power of 2.\n",
-                N);
-
-        return -1;
-    }
-
-    int logN = (int)log2f((float)N);
-
-    for (uint32_t i = 0; i < N; i++)
-    {
-        // Reverse the 32-bit index.
-        uint32_t rev = reverse_bits(i);
-
-        // Only keep the last logN bits of the output.
-        rev = rev >> (32 - logN);
-
-        // Base case: set the output to the bit-reversed input.
-        Y[i] = x[rev];
-    }
-
-    // Set m to 2, 4, 8, 16, ..., N
-    for (int s = 1; s <= logN; s++)
-    {
-        int m = 1 << s;
-        int mh = 1 << (s - 1);
-
-        std::complex<float> twiddle = std::exp(-2if * static_cast<float>(std::numbers::pi / m));
-
-        // Iterate through Y in strides of length m=2**s
-        // Set k to 0, m, 2m, 3m, ..., N-m
-        for (uint32_t k = 0; k < N; k += m)
-        {
-            std::complex<float> twiddle_factor = 1;
-
-            // Set both halves of the Y array at the same time
-            // j = 1, 4, 8, 16, ..., N / 2
-            for (int j = 0; j < mh; j++)
-            {
-                std::complex<float> a = Y[k + j];
-                std::complex<float> b = twiddle_factor * Y[k + j + mh];
-
-                // Compute pow(twiddle, j)
-                twiddle_factor *= twiddle;
-
-                Y[k + j] = a + b;
-                Y[k + j + mh] = a - b;
-            }
-        }
-    }
-    return EXIT_SUCCESS;
-}
-
-// This is used by `fft_gpu`.
-// This FFT algorithm works just like the Cooley-Tukey algorithm,
-// except a single thread is in charge of each of the N elements.
-// Threads synchronize in order to traverse the array log N times.
 __global__ void fft_kernel(const cuFloatComplex *x, cuFloatComplex *Y, uint32_t N, int logN)
 {
-    // Find this thread's index in the input array.
     uint32_t i = threadIdx.x + blockIdx.x * blockDim.x;
-
-    // Start by bit-reversing the input.
-    // Reverse the 32-bit index.
-    // Only keep the last logN bits of the output.
     uint32_t rev;
 
     rev = reverse_bits_gpu(2 * i);
@@ -370,70 +221,29 @@ __global__ void fft_kernel(const cuFloatComplex *x, cuFloatComplex *Y, uint32_t 
 
     __syncthreads();
 
-    // Set mh to 1, 2, 4, 8, ..., N/2
     for (int s = 1; s <= logN; s++)
     {
         int mh = 1 << (s - 1); // 2 ** (s - 1)
-
-        // k = 2**s * (2*i // 2**(s-1))  for i=0..N/2-1
-        // j = i % (2**(s - 1))  for i=0..N/2-1
         int k = threadIdx.x / mh * (1 << s);
         int j = threadIdx.x % mh;
         int kj = k + j;
 
         cuFloatComplex a = Y[kj];
-
-        // exp(-2i pi j / 2**s)
-        // exp(-2i pi j / m)
-        // exp(-i pi j / (m/2))
-        // exp(ix)
-        // cos(x) + i sin(x)
         float tr;
         float ti;
 
-        // TODO possible optimization:
-        // pre-compute twiddle factor array
-        // twiddle[s][j] = exp(-i pi * j / 2**(s-1))
-        // for j=0..N/2-1 (proportional)
-        // for s=1..log N
-        // need N log N / 2 tmp storage...
-
-        // Compute the sine and cosine to find this thread's twiddle factor.
         sincosf(-(float)M_PI * j / mh, &ti, &tr);
         cuFloatComplex twiddle = make_cuFloatComplex(tr, ti);
 
         cuFloatComplex b = cuCmulf(twiddle, Y[kj + mh]);
-
-        // Set both halves of the Y array at the same time
         Y[kj] = cuCaddf(a, b);
         Y[kj + mh] = cuCsubf(a, b);
-
-        // Wait for all threads to finish before traversing the array once more.
         __syncthreads();
     }
 }
 
-// fft_gpu
-//
-// This function computes the discrete Fourier transform (DFT) of a vector of
-// complex floats using a parallelized iterative version of the Cooley-Tukey fast
-// Fourier transform algorithm (FFT). Computing the output requires
-// O(N log_2 N) operations for input of length N.
-//
-// Parameters:
-// x: CUDA complex float array that serves as the input
-// Y: CUDA complex float array in which to store the DFT of x
-// N: length of the input and output arrays
-//
-// N must be a power of 2
-//
-// Return value:
-// This function returns 0 if it succeeded, -1 otherwise.
 int fft_gpu(const cuFloatComplex *x, cuFloatComplex *Y, uint32_t N)
 {
-    // if N>0 is a power of 2 then
-    // N & (N - 1) = ...01000... & ...00111... = 0
-    // otherwise N & (N - 1) will have a 0 in it
     if (N & (N - 1))
     {
         fprintf(stderr,
@@ -491,41 +301,6 @@ int fft_gpu(const cuFloatComplex *x, cuFloatComplex *Y, uint32_t N)
     return EXIT_SUCCESS;
 }
 
-// show_complex_vector
-//
-// This function pretty prints an array of complex floats.
-//
-// Parameters:
-// v: an array of complex floats containing at least N elements
-// N: print the floats from index 0 to index N-1
-//
-// Return value:
-// none
-void show_complex_vector(std::complex<float> *v, uint32_t N)
-{
-    printf("TOTAL PROCESSED SAMPLES: %u\n", N);
-    printf("%s\n", "================================");
-
-    // Set the output precision
-    int prec = 10;
-    for (uint32_t k = 0; k < N; k++)
-    {
-        printf("XR[%d]: %.*f \n", k, prec, std::real(v[k]));
-        printf("XI[%d]: %.*f \n", k, prec, std::imag(v[k]));
-        printf("%s\n", "================================");
-    }
-}
-
-// show_complex_gpu_vector
-//
-// Print an array of CUDA complex floats
-//
-// Parameters:
-// v: an array of CUDA complex floats containing at least N elements
-// N: print the floats from index 0 to index N-1
-//
-// Return value:
-// none
 void show_complex_gpu_vector(cuFloatComplex *v, uint32_t N)
 {
     printf("TOTAL PROCESSED SAMPLES: %u\n", N);
@@ -543,7 +318,6 @@ void show_complex_gpu_vector(cuFloatComplex *v, uint32_t N)
 
 static const size_t sample_size = sizeof(signal) / sizeof(*signal);
 
-// Allocate complex floats. Setup using sample data.
 int setup_data(std::complex<float> **in, std::complex<float> **out, uint32_t N, int fill_with, int no_sample)
 {
     // Allocate arrays of size N
@@ -559,7 +333,6 @@ int setup_data(std::complex<float> **in, std::complex<float> **out, uint32_t N, 
     return EXIT_SUCCESS;
 }
 
-// Allocate CUDA complex floats. Setup using sample data.
 int setup_gpu(cuFloatComplex **in, cuFloatComplex **out, uint32_t N, int fill_with, int no_sample)
 {
     // Startup the CUDA runtime.
@@ -604,7 +377,6 @@ int run(const char *algorithm_name, algorithm_t f, const void *in, void *out, ui
 
 int main(int argc, const char **argv)
 {
-    // Default value of N here. Should be a power of two if using the fft algorithm. ///
     uint32_t N = 262144;
 
     // Program options

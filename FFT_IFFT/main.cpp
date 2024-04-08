@@ -98,11 +98,13 @@ int fft(const std::complex<float> *x, std::complex<float> *Y, uint32_t N)
     return EXIT_SUCCESS;
 }
 
+static const size_t sample_size = sizeof(signal) / sizeof(*signal);
+
 void show_complex_vector(std::complex<float> *v, uint32_t N)
 {
     printf("# TOTAL PROCESSED SAMPLES: %u\n", N);
     printf("# %s\n", "================================");
-    printf("import cmath\n\ndata = [\n");
+    printf("from numpy.fft import fft, ifft\nimport numpy as np\nimport matplotlib.pyplot as plt\n\ndata = [\n");
 
     // Set the output precision
     int prec = 10;
@@ -111,11 +113,28 @@ void show_complex_vector(std::complex<float> *v, uint32_t N)
         if (k < N - 1)
             printf("%10f + %10fj, ", std::real(v[k]), std::imag(v[k]));
         else
-            printf("%10f + %10fj ]", std::real(v[k]), std::imag(v[k]));
+            printf("%10f + %10fj ]\n", std::real(v[k]), std::imag(v[k]));
     }
-}
 
-static const size_t sample_size = sizeof(signal) / sizeof(*signal);
+    printf("Fs = %zu\n", sample_size);
+    printf("time = np.arange(0, 1, 1/Fs)\n");
+    printf("X = data\n");
+    printf("N = len(X)\n");
+    printf("n = np.arange(N)\n");
+    printf("T = N/Fs\n");
+    printf("freq = n/T\n");
+    printf("plt.figure(figsize=(12, 6))\n");
+    printf("plt.subplot(121)\n");
+    printf("plt.stem(freq, np.abs(X), 'b', markerfmt=\" \", basefmt=\"-b\")\n");
+    printf("plt.xlabel('Freq (Hz)')\n");
+    printf("plt.ylabel('FFT Amplitude |X(freq)|')\n");
+    printf("plt.subplot(122)\n");
+    printf("plt.plot(time, ifft(X), 'r')\n");
+    printf("plt.xlabel('Time (s)')\n");
+    printf("plt.ylabel('Amplitude')\n");
+    printf("plt.tight_layout()\n");
+    printf("plt.show()\n");
+}
 
 int setup_data(std::complex<float> **in, std::complex<float> **out, uint32_t N)
 {
@@ -140,7 +159,7 @@ int run(const char *algorithm_name, algorithm_t f, const void *in, void *out, ui
 
 int main(int argc, const char **argv)
 {
-    uint32_t N = 262144;
+    uint32_t N = sample_size;
 
     bool no_print = false;
 
