@@ -5,8 +5,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <numbers>
 
-#include "combined_signal.hpp"
+#include "vector_ext.hpp"
 
 typedef int (*algorithm_t)(const void *, void *, uint32_t);
 
@@ -98,55 +99,11 @@ int fft(const std::complex<float> *x, std::complex<float> *Y, uint32_t N)
     return EXIT_SUCCESS;
 }
 
-static const size_t sample_size = sizeof(signal) / sizeof(*signal);
-
-void show_complex_vector(std::complex<float> *v, uint32_t N)
+int setup_data(std::complex<float> **in, std::complex<float> **out, uint32_t N, uint64_t sample_size)
 {
-    printf("# TOTAL PROCESSED SAMPLES: %u\n", N);
-    printf("# %s\n", "================================");
-    printf("from numpy.fft import fft, ifft\nimport numpy as np\nimport matplotlib.pyplot as plt\n\ndata = [\n");
-
-    // Set the output precision
-    int prec = 10;
-    for (uint32_t k = 0; k < N; k++)
-    {
-        if (k < N - 1)
-            printf("%10f + %10fj, ", std::real(v[k]), std::imag(v[k]));
-        else
-            printf("%10f + %10fj ]\n", std::real(v[k]), std::imag(v[k]));
-    }
-
-    printf("Fs = %zu\n", sample_size);
-    printf("time = np.arange(0, 1, 1/Fs)\n");
-    printf("X = data\n");
-    printf("N = len(X)\n");
-    printf("n = np.arange(N)\n");
-    printf("T = N/Fs\n");
-    printf("freq = n/T\n");
-    printf("plt.figure(figsize=(12, 6))\n");
-    printf("plt.subplot(121)\n");
-    printf("plt.stem(freq, np.abs(X), 'b', markerfmt=\" \", basefmt=\"-b\")\n");
-    printf("plt.xlabel('Freq (Hz)')\n");
-    printf("plt.ylabel('FFT Amplitude |X(freq)|')\n");
-    printf("plt.subplot(122)\n");
-    printf("plt.plot(time, ifft(X), 'r')\n");
-    printf("plt.xlabel('Time (s)')\n");
-    printf("plt.ylabel('Amplitude')\n");
-    printf("plt.tight_layout()\n");
-    printf("plt.show()\n");
-}
-
-int setup_data(std::complex<float> **in, std::complex<float> **out, uint32_t N)
-{
-    *in = (std::complex<float> *)calloc(N, sizeof(std::complex<float>));
-    CHECK_MALLOC(in, "input");
     *out = (std::complex<float> *)calloc(N, sizeof(std::complex<float>));
     CHECK_MALLOC(out, "output");
 
-    for (size_t i = 0; i < ((N < sample_size) ? N : sample_size); i++)
-    {
-        (*in)[i] = signal[i];
-    }
     return EXIT_SUCCESS;
 }
 
@@ -159,22 +116,23 @@ int run(const char *algorithm_name, algorithm_t f, const void *in, void *out, ui
 
 int main(int argc, const char **argv)
 {
-    uint32_t N = sample_size;
+    auto range = arange(0, 1, 0.001);
 
-    bool no_print = false;
+    vector_ext<std::complex<float>> input_signal_24hz(range.size());
+    vector_ext<std::complex<float>> input_signal_64hz(range.size());
 
-    std::complex<float> *in;
-    std::complex<float> *out;
+    std::transform(range.begin(), range.end(), input_signal_24hz.begin(),
+                   [](auto &n) { return std::sin(2 * std::numbers::pi * 24 * n); });
+    std::transform(range.begin(), range.end(), input_signal_64hz.begin(),
+                   [](auto &n) { return std::sin(2 * std::numbers::pi * 64 * n); });
 
-    CHECK_RET(setup_data(&in, &out, N));
-    CHECK_RET(run("Cooley-Tukey FFT", (algorithm_t)fft, in, out, N));
+    auto output = input_signal_24hz + input_signal_64hz;
 
-    // Print the results
-    if (!no_print)
+    std::cout << "OUTPUT: [\n";
+    for (auto &i : output)
     {
-        show_complex_vector(out, N);
+        std::cout << i << " ";
     }
-    free(in);
-    free(out);
+    std::cout << "]\n";
     return 0;
 }
