@@ -92,16 +92,17 @@ template <typename Type_> class vector_ext : public std::vector<Type_>
         size_check(*this, vector_obj);
         vector_ext<Type_> ret_vec(this->size());
 
-#if defined(USE_EXECUTION_POLICY)
-        std::transform(std::execution::par_unseq, this->begin(), this->end(), vector_obj.begin(), ret_vec.begin(),
-                       [](Type_ &a, Type_ &b) { return a - b; });
-#elif defined(USE_CUDA)
-        user_space::sub(ret_vec, *this, vector_obj);
-#else
-#pragma omp parallel for schedule(guided)
-        for (auto i = 0; i < static_cast<int>(ret_vec.size()); i++)
-            ret_vec.at(i) = this->at(i) - vector_obj.at(i);
-#endif
+        for (uint64_t idx = 0; idx < this->size(); idx += 8)
+        {
+            ret_vec[idx] = this->at(idx) - vector_obj[idx];
+            ret_vec[idx + 1] = this->at(idx + 1) - vector_obj[idx + 1];
+            ret_vec[idx + 2] = this->at(idx + 2) - vector_obj[idx + 2];
+            ret_vec[idx + 3] = this->at(idx + 3) - vector_obj[idx + 3];
+            ret_vec[idx + 4] = this->at(idx + 4) - vector_obj[idx + 4];
+            ret_vec[idx + 5] = this->at(idx + 5) - vector_obj[idx + 5];
+            ret_vec[idx + 6] = this->at(idx + 6) - vector_obj[idx + 6];
+            ret_vec[idx + 7] = this->at(idx + 7) - vector_obj[idx + 7];
+        }
 
         return ret_vec;
     }

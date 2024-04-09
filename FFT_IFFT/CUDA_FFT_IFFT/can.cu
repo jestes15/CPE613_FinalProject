@@ -1,99 +1,3 @@
-/*****************************************************************************
-
-    The DFT function
-    ================
-
-    This file defines the function `dft` which finds the DFT of a complex
-    vector. It is based on the definition of the DFT.
-    Expect O(n^2) operations for computing the DFT of vectors of size n.
-
-    The FFT function
-    ================
-
-    This file defines the functions `fft` and `fft_gpu` which find the DFT of a complex
-    vector. They are based on the iterative Cooley-Tukey FFT algorithm.
-    Expect O(n lg n) operations for computing the DFT of vectors of size n.
-
-    Data input format
-    =================
-
-    Both functions `dft` and `fft` accept arrays of complex floats.
-    They output to their second parameters.
-    The input and output parameters must be of the same size.
-    The `fft` and `fft_gpu` function expects input length to be a power of 2.
-
-    The `fft_gpu` function accepts arrays of CUDA complex floats.
-
-    Compiling the program
-    ===================
-
-    Type `make` to compile the program. Alternatively, type the following commands:
-
-    nvcc --compiler-options=-Wall -g -c argparse.c
-    nvcc --compiler-options=-Wall -g argparse.o HugoRiveraA3.cu -o fft -lm
-
-    This program uses the lightweight argparse library.
-    The files `argparse.h` and `argparse.c` are used for command line argument
-    parsing.
-
-    Running the program
-    ===================
-
-    Define N in the `main` function.
-    By default, the first 8 elements of the input array will be set to the
-    given sample input. The rest of the elements are set to zero.
-
-    To run the DFT algorithm on input of size n, type
-
-    ./fft --data_length=n
-    o
-    ./fft -N n
-
-    If n is a power of 2, then it is possible to run the Cooley-Tukey FFT
-    algorithm. Type
-
-    ./fft --data_length=n --algorithm=fft
-    or
-    ./fft -N n -a fft
-
-    Furthermore, to run the Coolye-Tukey FFT algorithm on the GPU, type
-
-    ./fft --data_length=n --algorithm=fft
-    or
-    ./fft -N n -a fft
-
-    This program also has timing features. Type the following to see all features:
-
-    ./fft -h
-
-    Usage: fft [options]
-
-    Compute the FFT of a dataset with a given size, using a specified DFT algorithm.
-
-        -h, --help                show this help message and exit
-
-    Algorithm and data options
-        -a, --algorithm=<str>     algorithm for computing the DFT (dft|fft|gpu|fft_gpu|dft_gpu), default is 'dft'
-        -f, --fill_with=<int>     fill data with this integer
-        -s, --no_samples          do not set first part of array to sample data
-        -N, --data_length=<int>   data length
-
-    Benchmark options
-        -t, --measure_time=<int>  measure runtime. runs algorithms <int> times. set to 0 if not needed.
-        -p, --no_print            do not print results
-
-
-    Definition of the DFT
-    =====================
-
-    Let x be an N dimensional complex vector (or array).
-    Then the DFT of x is an N dimensional complex vector called Y where
-    each element of Y is defined as follows:
-
-    Y[k] = sum( x[n] * exp(-2i * pi * n * k / N) ) where n=0 to N-1
-
-****************************************************************************/
-
 #include <cmath>
 #include <complex>
 #include <cuComplex.h>
@@ -102,8 +6,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
-#include <combined_signal.hpp>
 
 typedef int (*algorithm_t)(const void *, void *, uint32_t);
 

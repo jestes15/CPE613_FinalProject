@@ -1,11 +1,11 @@
 #include <cmath>
 #include <complex>
+#include <numbers>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <numbers>
 
 #include "vector_ext.hpp"
 
@@ -116,23 +116,14 @@ int run(const char *algorithm_name, algorithm_t f, const void *in, void *out, ui
 
 int main(int argc, const char **argv)
 {
-    auto range = arange(0, 1, 0.001);
+    auto range = arange(0, 1, 0.00000762939453125);
 
-    vector_ext<std::complex<float>> input_signal_24hz(range.size());
-    vector_ext<std::complex<float>> input_signal_64hz(range.size());
+    vector_ext<std::complex<float>> signal(range.size());
 
-    std::transform(range.begin(), range.end(), input_signal_24hz.begin(),
+    std::transform(range.begin(), range.end(), signal.begin(),
                    [](auto &n) { return std::sin(2 * std::numbers::pi * 24 * n); });
-    std::transform(range.begin(), range.end(), input_signal_64hz.begin(),
-                   [](auto &n) { return std::sin(2 * std::numbers::pi * 64 * n); });
 
-    auto output = input_signal_24hz + input_signal_64hz;
+    auto output = ;
 
-    std::cout << "OUTPUT: [\n";
-    for (auto &i : output)
-    {
-        std::cout << i << " ";
-    }
-    std::cout << "]\n";
     return 0;
 }
