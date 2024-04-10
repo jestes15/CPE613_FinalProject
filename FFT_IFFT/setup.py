@@ -106,10 +106,10 @@ except AttributeError:
     numpy_include = numpy.get_numpy_include()
 
 
-ext = Extension('gpuadder',
-                sources=['src/manager.cu', 'wrapper.pyx'],
+ext = Extension('custom_fft',
+                sources=['src/fft.cu', 'fft.pyx'],
                 library_dirs=[CUDA['lib64']],
-                libraries=['cudart'],
+                libraries=['cudart', 'cufft'],
                 language='c++',
                 runtime_library_dirs=[CUDA['lib64']],
                 # This syntax is specific to this build system
@@ -119,7 +119,7 @@ ext = Extension('gpuadder',
                 extra_compile_args={
                     'gcc': [],
                     'nvcc': [
-                        '-arch=sm_30', '--ptxas-options=-v', '-c',
+                        '-arch=sm_89', '-O2', '--ptxas-options=-v', '-c',
                         '--compiler-options', "'-fPIC'"
                     ]
                 },
@@ -127,7 +127,7 @@ ext = Extension('gpuadder',
                 )
 
 
-setup(name='gpuadder',
+setup(name='custom_fft',
       ext_modules=[ext],
       cmdclass={'build_ext': custom_build_ext},
       zip_safe=False)
