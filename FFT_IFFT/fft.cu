@@ -1,5 +1,7 @@
 #include "fft.h"
 #include <complex>
+#include <cuda_runtime.h>
+#include <cufft.h>
 #include <iostream>
 #include <vector>
 
@@ -63,4 +65,9 @@ std::vector<std::complex<float>> _fft(std::vector<std::complex<float>> input_sig
     std::vector<std::complex<float>> output(input_signal.size());
     _fft_backend(input_signal.data(), output.data(), input_signal.size());
     return output;
+}
+
+std::vector<std::complex<float>> _fft_cuda_reference(std::vector<std::complex<float>> input_signal)
+{
+	
 }
