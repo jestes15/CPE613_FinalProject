@@ -1,9 +1,6 @@
 #include "fft.h"
-#include <complex>
 #include <cuda_runtime.h>
 #include <cufft.h>
-#include <iostream>
-#include <vector>
 
 #ifndef CUFFT_CALL
 #define CUFFT_CALL(call)                                                                                               \

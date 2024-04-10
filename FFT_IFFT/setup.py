@@ -107,21 +107,17 @@ except AttributeError:
 
 
 ext = Extension('custom_fft',
-                sources=['src/fft.cu', 'fft.pyx'],
+                sources=['src/fft.cu', 'src/mkl_fft.cpp', 'fft.pyx'],
                 library_dirs=[CUDA['lib64']],
                 libraries=['cudart', 'cufft'],
                 language='c++',
                 runtime_library_dirs=[CUDA['lib64']],
-                # This syntax is specific to this build system
-                # we're only going to use certain compiler args with nvcc
-                # and not with gcc the implementation of this trick is in
-                # customize_compiler()
                 extra_compile_args={
-                    'gcc': [],
-                    'nvcc': [
-                        '-arch=sm_89', '-O2', '--ptxas-options=-v', '-c',
-                        '--compiler-options', "'-fPIC'"
-                    ]
+                    'gcc': ['-m64', '-I/opt/intel/oneapi/mkl/latest/include'],
+                    'nvcc': ['-I/opt/intel/oneapi/mkl/latest/include', '-L/opt/intel/oneapi/mkl/latest/lib'
+                             '-arch=sm_89', '-O2', '--ptxas-options=-v', '-c',
+                             '--compiler-options', "'-fPIC'"
+                             ]
                 },
                 include_dirs=[numpy_include, CUDA['include'], 'src']
                 )
