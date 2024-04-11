@@ -83,6 +83,8 @@
 		"__split_buffer": "cpp",
 		"ios": "cpp",
 		"locale": "cpp",
-		"print": "cpp"
+		"print": "cpp",
+		"hash_map": "cpp",
+		"alignedvector3": "cpp"
 	}
 }

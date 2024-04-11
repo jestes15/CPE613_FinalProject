@@ -3,17 +3,17 @@ import numpy as np
 from numpy.fft import fft as np_fft
 from custom_fft import fft, fft_reference_gpu, MKL_forward_fft_R2C, MKL_forward_fft_C2C # type: ignore
 
-Fs = 2 ** 13
+Fs = 2 ** 17
 time = np.arange(0, 1, 1/Fs)
 
-F1 = 500
-F2 = 1000
-F3 = 1500
-F4 = 2000
-F5 = 2500
-F6 = 3000
-F7 = 3500
-F8 = 4000
+F1 = 191
+F2 = 1535
+F3 = 13845
+F4 = 6661
+F5 = 22648
+F6 = 49471
+F7 = 38661
+F8 = 44117
 
 Signal1 = np.sin(2 * np.pi * time * F1)
 Signal2 = np.sin(2 * np.pi * time * F2)
@@ -58,36 +58,33 @@ n_c2c_mkl = np.arange(N_c2c_mkl)
 T_c2c_mkl = N_c2c_mkl/Fs
 freq_c2c_mkl = n_c2c_mkl/T_c2c_mkl
 
-
-plt.figure(figsize=(15, 12))
-
-ax1 = plt.subplot(122)
-ax1.margins(0, 0.1)
+plt.figure(figsize=(20, 11))
+ax1 = plt.subplot(313)
 ax1.plot(time, combined_signals)
-ax1.set_xlim([0.0, 0.01])
+ax1.set_xlim([0.0, 0.05])
 ax1.set_title("Original Signal")
 
-ax2 = plt.subplot(521)
+ax2 = plt.subplot(331)
 ax2.stem(freq_custom, np.abs(fft_sig))
 ax2.set_xlim([0.0, Fs/2])
 ax2.set_title('CPU FFT Result')
 
-ax3 = plt.subplot(523)
+ax3 = plt.subplot(332)
 ax3.stem(freq_cuda, np.abs(fft_cuda))
 ax3.set_xlim([0.0, Fs/2])
 ax3.set_title('CUDA Reference FFT Result')
 
-ax4 = plt.subplot(525)
+ax4 = plt.subplot(333)
 ax4.stem(freq_np, np.abs(np_fft))
 ax4.set_xlim([0.0, Fs/2])
 ax4.set_title('Numpy Reference FFT Result')
 
-ax4 = plt.subplot(527)
+ax4 = plt.subplot(334)
 ax4.stem(freq_r2c_mkl, np.abs(fft_r2c_mkl))
 ax4.set_xlim([0.0, Fs/2])
 ax4.set_title('MKL Real-to-Complex Reference FFT Result')
 
-ax4 = plt.subplot(529)
+ax4 = plt.subplot(335)
 ax4.stem(freq_c2c_mkl, np.abs(fft_c2c_mkl))
 ax4.set_xlim([0.0, Fs/2])
 ax4.set_title('MKL Complex-to-Complex Reference FFT Result')

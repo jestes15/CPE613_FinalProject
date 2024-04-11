@@ -84,7 +84,7 @@ int _fft_backend(const std::complex<float> *x, std::complex<float> *Y, uint32_t 
     return EXIT_SUCCESS;
 }
 
-std::vector<std::complex<float>> _fft(std::vector<std::complex<float>> input_signal)
+std::vector<std::complex<float>> _fft_cpu(std::vector<std::complex<float>> input_signal)
 {
     std::vector<std::complex<float>> output(input_signal.size());
     _fft_backend(input_signal.data(), output.data(), input_signal.size());

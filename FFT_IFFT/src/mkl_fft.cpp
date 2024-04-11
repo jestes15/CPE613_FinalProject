@@ -18,19 +18,17 @@ DFTI_DESCRIPTOR *create_descriptor(MKL_LONG length)
 
 std::vector<std::complex<float>> _forward_fft_R2C(std::vector<float> in)
 {
-    size_t out_size = in.size() / 2 + 1; // so many complex numbers needed
-    std::vector<std::complex<float>> result(out_size);
-    DFTI_DESCRIPTOR *handle = create_descriptor(static_cast<MKL_LONG>(in.size()));
-    bool valid = handle && (DFTI_NO_ERROR == DftiComputeForward(handle, in.data(), result.data()));
-    if (handle)
-    {
-        valid &= (DFTI_NO_ERROR == DftiFreeDescriptor(&handle));
-    }
-    if (!valid)
-    {
-        result.clear();
-    }
-    return result;
+    std::vector<std::complex<float>> out(in.size());
+
+    DFTI_DESCRIPTOR_HANDLE descriptor;
+
+    DftiCreateDescriptor(&descriptor, DFTI_SINGLE, DFTI_REAL, 1, in.size());
+    DftiSetValue(descriptor, DFTI_PLACEMENT, DFTI_NOT_INPLACE);
+    DftiCommitDescriptor(descriptor);
+    DftiComputeForward(descriptor, in.data(), out.data());
+    DftiFreeDescriptor(&descriptor);
+
+    return out;
 }
 std::vector<std::complex<float>> _forward_fft_C2C(std::vector<std::complex<float>> in)
 {
