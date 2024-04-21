@@ -579,31 +579,3 @@ template <class const_params> __global__ void SMFFT_DIT_external(float2 *d_input
     d_output[threadIdx.x + blockIdx.x * const_params::fft_length + const_params::fft_length_three_quarters] =
         s_input[threadIdx.x + const_params::fft_length_three_quarters];
 }
-
-template <class const_params> __global__ void SMFFT_DIT_multiple(float2 *d_input, float2 *d_output)
-{
-    __shared__ float2 s_input[const_params::fft_sm_required];
-
-    s_input[threadIdx.x] = d_input[threadIdx.x + blockIdx.x * const_params::fft_length];
-    s_input[threadIdx.x + const_params::fft_length_quarter] =
-        d_input[threadIdx.x + blockIdx.x * const_params::fft_length + const_params::fft_length_quarter];
-    s_input[threadIdx.x + const_params::fft_length_half] =
-        d_input[threadIdx.x + blockIdx.x * const_params::fft_length + const_params::fft_length_half];
-    s_input[threadIdx.x + const_params::fft_length_three_quarters] =
-        d_input[threadIdx.x + blockIdx.x * const_params::fft_length + const_params::fft_length_three_quarters];
-
-    __syncthreads();
-    for (int f = 0; f < NREUSES; f++)
-    {
-        do_SMFFT_CT_DIT<const_params>(s_input);
-    }
-    __syncthreads();
-
-    d_output[threadIdx.x + blockIdx.x * const_params::fft_length] = s_input[threadIdx.x];
-    d_output[threadIdx.x + blockIdx.x * const_params::fft_length + const_params::fft_length_quarter] =
-        s_input[threadIdx.x + const_params::fft_length_quarter];
-    d_output[threadIdx.x + blockIdx.x * const_params::fft_length + const_params::fft_length_half] =
-        s_input[threadIdx.x + const_params::fft_length_half];
-    d_output[threadIdx.x + blockIdx.x * const_params::fft_length + const_params::fft_length_three_quarters] =
-        s_input[threadIdx.x + const_params::fft_length_three_quarters];
-}
