@@ -6,7 +6,7 @@
 #include <mkl.h>
 #include <vector>
 
-std::vector<std::complex<float>> _fft(std::vector<std::complex<float>> input_signal);
+std::vector<std::complex<float>> _fft_cpu(std::vector<std::complex<float>> input_signal);
 std::vector<std::complex<float>> _fft_cuda_reference(std::vector<std::complex<float>> input_signal, int polling_rate);
 
 std::vector<std::complex<float>> _forward_fft_R2C(std::vector<float> in);
