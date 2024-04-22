@@ -29,12 +29,12 @@ combined_signals = Signal1 + Signal2 + Signal3 + \
 
 np_fft = np_fft(combined_signals.astype(complex))
 fft_sig = fft(combined_signals.astype(complex))
-# fft_cuda = fft_reference_gpu(combined_signals.astype(complex), Fs)
+fft_cuda = fft_reference_gpu(combined_signals.astype(complex), Fs)
 fft_r2c_mkl = MKL_forward_fft_R2C(combined_signals)
 fft_c2c_mkl = MKL_forward_fft_C2C(combined_signals.astype(complex))
-fft_c2c_manual_impl = manual_fft_impl(combined_signals.astype(complex))
+fft_c2c_manual_impl = manual_fft_impl(combined_signals.astype(complex), 1024)
 
-# print(fft_cuda[0:4])
+print(fft_cuda[0:4])
 print(fft_c2c_manual_impl[0:4])
 
 N_custom = len(fft_sig)
@@ -47,10 +47,10 @@ n_np = np.arange(N_np)
 T_np = N_np/Fs
 freq_np = n_np/T_np
 
-# N_cuda = len(fft_cuda)
-# n_cuda = np.arange(N_cuda)
-# T_cuda = N_cuda/Fs
-# freq_cuda = n_cuda/T_cuda
+N_cuda = len(fft_cuda)
+n_cuda = np.arange(N_cuda)
+T_cuda = N_cuda/Fs
+freq_cuda = n_cuda/T_cuda
 
 N_r2c_mkl = len(fft_r2c_mkl)
 n_r2c_mkl = np.arange(N_r2c_mkl)
@@ -78,10 +78,10 @@ ax2.stem(freq_custom, np.abs(fft_sig))
 ax2.set_xlim([0.0, Fs/2])
 ax2.set_title('CPU FFT Result')
 
-# ax3 = plt.subplot(332)
-# ax3.stem(freq_cuda, np.abs(fft_cuda))
-# ax3.set_xlim([0.0, Fs/2])
-# ax3.set_title('CUDA Reference FFT Result')
+ax3 = plt.subplot(332)
+ax3.stem(freq_cuda, np.abs(fft_cuda))
+ax3.set_xlim([0.0, Fs/2])
+ax3.set_title('CUDA Reference FFT Result')
 
 ax4 = plt.subplot(333)
 ax4.stem(freq_np, np.abs(np_fft))

@@ -39,17 +39,29 @@ __device__ __inline__ cuComplex Get_W_value_inverse(int N, int m)
 
 __device__ __inline__ float shfl(float *value, int par)
 {
+#if (CUDART_VERSION >= 9000)
     return (__shfl_sync(0xffffffff, (*value), par));
+#else
+    return (__shfl((*value), par));
+#endif
 }
 
 __device__ __inline__ float shfl_xor(float *value, int par)
 {
+#if (CUDART_VERSION >= 9000)
     return (__shfl_xor_sync(0xffffffff, (*value), par));
+#else
+    return (__shfl_xor((*value), par));
+#endif
 }
 
 __device__ __inline__ float shfl_down(float *value, int par)
 {
+#if (CUDART_VERSION >= 9000)
     return (__shfl_down_sync(0xffffffff, (*value), par));
+#else
+    return (__shfl_down((*value), par));
+#endif
 }
 
 __device__ __inline__ void reorder_4_register(cuComplex *A_DFT_value, cuComplex *B_DFT_value, cuComplex *C_DFT_value,
@@ -327,6 +339,7 @@ __device__ __inline__ void reorder_4096(cuComplex *s_input, cuComplex *A_DFT_val
     reorder_32_register(A_DFT_value, B_DFT_value, C_DFT_value, D_DFT_value);
 
     __syncthreads();
+    // unsigned int sm_store_pos = (local_id>>0) + 32*(local_id&0) + warp_id*132;
     unsigned int sm_store_pos = local_id + warp_id * 132;
     s_input[sm_store_pos] = *A_DFT_value;
     s_input[sm_store_pos + 33] = *B_DFT_value;
@@ -335,6 +348,7 @@ __device__ __inline__ void reorder_4096(cuComplex *s_input, cuComplex *A_DFT_val
 
     // Read shared memory to get reordered input
     __syncthreads();
+    // unsigned int sm_read_pos = (local_id&31)*33 + warp_id*2;
     unsigned int sm_read_pos = local_id * 33 + warp_id;
     *A_DFT_value = s_input[sm_read_pos + 0];
     *B_DFT_value = s_input[sm_read_pos + 1056];
@@ -345,7 +359,7 @@ __device__ __inline__ void reorder_4096(cuComplex *s_input, cuComplex *A_DFT_val
     reorder_128<const_params>(s_input, A_DFT_value, B_DFT_value, C_DFT_value, D_DFT_value);
 }
 
-template <class const_params> __device__ void execute_shared_memory_fft(cuComplex *s_input)
+template <class const_params> __device__ void do_SMFFT_CT_DIT(cuComplex *s_input)
 {
     cuComplex A_DFT_value, B_DFT_value, C_DFT_value, D_DFT_value;
     cuComplex W;
@@ -363,29 +377,31 @@ template <class const_params> __device__ void execute_shared_memory_fft(cuComple
     C_DFT_value = s_input[local_id + (warp_id << 2) * const_params::warp + 2 * const_params::warp];
     D_DFT_value = s_input[local_id + (warp_id << 2) * const_params::warp + 3 * const_params::warp];
 
-    if constexpr (const_params::fft_reorder)
+    if (const_params::fft_reorder)
     {
-        if constexpr (const_params::fft_exp == 5)
+        if (const_params::fft_exp == 5)
             reorder_32<const_params>(s_input, &A_DFT_value, &B_DFT_value, &C_DFT_value, &D_DFT_value);
-        else if constexpr (const_params::fft_exp == 6)
+        else if (const_params::fft_exp == 6)
             reorder_64<const_params>(s_input, &A_DFT_value, &B_DFT_value, &C_DFT_value, &D_DFT_value);
-        else if constexpr (const_params::fft_exp == 7)
+        else if (const_params::fft_exp == 7)
             reorder_128<const_params>(s_input, &A_DFT_value, &B_DFT_value, &C_DFT_value, &D_DFT_value);
-        else if constexpr (const_params::fft_exp == 8)
+        else if (const_params::fft_exp == 8)
             reorder_256<const_params>(s_input, &A_DFT_value, &B_DFT_value, &C_DFT_value, &D_DFT_value);
-        else if constexpr (const_params::fft_exp == 9)
+        else if (const_params::fft_exp == 9)
             reorder_512<const_params>(s_input, &A_DFT_value, &B_DFT_value, &C_DFT_value, &D_DFT_value);
-        else if constexpr (const_params::fft_exp == 10)
+        else if (const_params::fft_exp == 10)
             reorder_1024<const_params>(s_input, &A_DFT_value, &B_DFT_value, &C_DFT_value, &D_DFT_value);
-        else if constexpr (const_params::fft_exp == 11)
+        else if (const_params::fft_exp == 11)
             reorder_2048<const_params>(s_input, &A_DFT_value, &B_DFT_value, &C_DFT_value, &D_DFT_value);
-        else if constexpr (const_params::fft_exp == 12)
+        else if (const_params::fft_exp == 12)
             reorder_4096<const_params>(s_input, &A_DFT_value, &B_DFT_value, &C_DFT_value, &D_DFT_value);
     }
 
+    //----> FFT
     PoT = 1;
     PoTp1 = 2;
 
+    //--> First iteration
     itemp = local_id & 1;
     parity = (1 - itemp * 2);
 
@@ -398,17 +414,16 @@ template <class const_params> __device__ void execute_shared_memory_fft(cuComple
     D_DFT_value.x = parity * D_DFT_value.x + shfl_xor(&D_DFT_value.x, 1);
     D_DFT_value.y = parity * D_DFT_value.y + shfl_xor(&D_DFT_value.y, 1);
 
+    //--> Second through Fifth iteration (no synchronization)
     PoT = 2;
     PoTp1 = 4;
-
-#pragma unroll
     for (q = 1; q < 5; q++)
     {
         m_param = (local_id & (PoTp1 - 1));
         itemp = m_param >> q;
         parity = ((itemp << 1) - 1);
 
-        if constexpr (const_params::fft_direction)
+        if (const_params::fft_direction)
             W = Get_W_value_inverse(PoTp1, itemp * m_param);
         else
             W = Get_W_value(PoTp1, itemp * m_param);
@@ -520,6 +535,7 @@ template <class const_params> __device__ void execute_shared_memory_fft(cuComple
         PoTp1 = PoTp1 << 1;
     }
 
+    // last iteration
     if (const_params::fft_exp > 6)
     {
         __syncthreads();
@@ -579,7 +595,7 @@ template <class const_params> __global__ void shared_memory_fft(cuComplex *d_out
         d_input[threadIdx.x + blockIdx.x * const_params::fft_length + const_params::fft_length_three_quarters];
 
     __syncthreads();
-    execute_shared_memory_fft<const_params>(s_input);
+    do_SMFFT_CT_DIT<const_params>(s_input);
 
     __syncthreads();
     d_output[threadIdx.x + blockIdx.x * const_params::fft_length] = s_input[threadIdx.x];
@@ -591,37 +607,38 @@ template <class const_params> __global__ void shared_memory_fft(cuComplex *d_out
         s_input[threadIdx.x + const_params::fft_length_three_quarters];
 }
 
-std::vector<std::complex<float>> _manual_fft_impl(std::vector<std::complex<float>> input_signal)
+std::vector<std::complex<float>> _manual_fft_impl(std::vector<std::complex<float>> input_signal, int fft_size)
 {
-    int fft_size = 1024;
+    //---------> Checking edge cases
+    if (fft_size == 32 && ((input_signal.size() / fft_size) % 4) != 0)
+        return {};
+    if (fft_size == 64 && ((input_signal.size() / fft_size) % 2) != 0)
+        return {};
 
-    if (input_signal.size() % fft_size != 0)
-    {
-        printf("Input signal must be a power of 2\n");
-        exit(EXIT_FAILURE);
-    }
+    size_t input_size = input_signal.size();  // FFT_size * nFFTs;
+    size_t output_size = input_signal.size(); // FFT_size * nFFTs;
 
-    std::vector<std::complex<float>> output_signal(input_signal.size());
-    cuComplex *d_input = nullptr, *d_output = nullptr;
-    int number_of_ffts = input_signal.size() / fft_size;
+    std::vector<std::complex<float>> output(output_size);
 
-    // Create device data arrays
-    CUDA_RT_CALL(cudaMalloc(reinterpret_cast<void **>(&d_input), sizeof(cuComplex) * input_signal.size()));
-    CUDA_RT_CALL(cudaMalloc(reinterpret_cast<void **>(&d_output), sizeof(cuComplex) * output_signal.size()));
+    //----------> Memory allocation
+    cuComplex *d_input;
+    cuComplex *d_output;
+    CUDA_RT_CALL(cudaMalloc((void **)&d_input, sizeof(cuComplex) * input_size));
+    CUDA_RT_CALL(cudaMalloc((void **)&d_output, sizeof(cuComplex) * output_size));
 
-    CUDA_RT_CALL(cudaMemcpy(d_input, input_signal.data(), sizeof(std::complex<float>) * input_signal.size(),
-                            cudaMemcpyHostToDevice));
+    CUDA_RT_CALL(cudaMemcpy(d_input, input_signal.data(), input_size * sizeof(cuComplex), cudaMemcpyHostToDevice));
+    // FFT_external_benchmark(d_input, d_output, FFT_size, (h_input.size() / FFT_size));
 
-    dim3 gridSize(number_of_ffts, 1, 1);
+    dim3 gridSize((input_signal.size() / fft_size), 1, 1);
     dim3 blockSize(fft_size / 4, 1, 1);
     if (fft_size == 32)
     {
-        gridSize.x = number_of_ffts / 4;
+        gridSize.x = (input_signal.size() / fft_size) / 4;
         blockSize.x = 32;
     }
     if (fft_size == 64)
     {
-        gridSize.x = number_of_ffts / 2;
+        gridSize.x = (input_signal.size() / fft_size) / 2;
         blockSize.x = 32;
     }
 
@@ -629,35 +646,35 @@ std::vector<std::complex<float>> _manual_fft_impl(std::vector<std::complex<float
     switch (fft_size)
     {
     case 32:
-        shared_memory_fft<FFT_32_forward><<<gridSize, blockSize>>>(d_input, d_output);
+        shared_memory_fft<FFT_32_forward><<<gridSize, blockSize>>>(d_output, d_input);
         break;
 
     case 64:
-        shared_memory_fft<FFT_64_forward><<<gridSize, blockSize>>>(d_input, d_output);
+        shared_memory_fft<FFT_64_forward><<<gridSize, blockSize>>>(d_output, d_input);
         break;
 
     case 128:
-        shared_memory_fft<FFT_128_forward><<<gridSize, blockSize>>>(d_input, d_output);
+        shared_memory_fft<FFT_128_forward><<<gridSize, blockSize>>>(d_output, d_input);
         break;
 
     case 256:
-        shared_memory_fft<FFT_256_forward><<<gridSize, blockSize>>>(d_input, d_output);
+        shared_memory_fft<FFT_256_forward><<<gridSize, blockSize>>>(d_output, d_input);
         break;
 
     case 512:
-        shared_memory_fft<FFT_512_forward><<<gridSize, blockSize>>>(d_input, d_output);
+        shared_memory_fft<FFT_512_forward><<<gridSize, blockSize>>>(d_output, d_input);
         break;
 
     case 1024:
-        shared_memory_fft<FFT_1024_forward><<<gridSize, blockSize>>>(d_input, d_output);
+        shared_memory_fft<FFT_1024_forward><<<gridSize, blockSize>>>(d_output, d_input);
         break;
 
     case 2048:
-        shared_memory_fft<FFT_2048_forward><<<gridSize, blockSize>>>(d_input, d_output);
+        shared_memory_fft<FFT_2048_forward><<<gridSize, blockSize>>>(d_output, d_input);
         break;
 
     case 4096:
-        shared_memory_fft<FFT_4096_forward><<<gridSize, blockSize>>>(d_input, d_output);
+        shared_memory_fft<FFT_4096_forward><<<gridSize, blockSize>>>(d_output, d_input);
         break;
 
     default:
@@ -665,13 +682,21 @@ std::vector<std::complex<float>> _manual_fft_impl(std::vector<std::complex<float
         break;
     }
 
-    CUDA_RT_CALL(cudaDeviceSynchronize());
+    CUDA_RT_CALL(cudaGetLastError());
+    CUDA_RT_CALL(cudaMemcpy(output.data(), d_output, output_size * sizeof(cuComplex), cudaMemcpyDeviceToHost));
 
-    CUDA_RT_CALL(cudaMemcpy(output_signal.data(), d_output, sizeof(std::complex<float>) * output_signal.size(),
-                            cudaMemcpyDeviceToHost));
+    //---------> error check -----
+    CUDA_RT_CALL(cudaGetLastError());
 
-    CUDA_RT_CALL(cudaFree(d_input))
+    //---------> Feeing allocated resources
+    CUDA_RT_CALL(cudaFree(d_input));
     CUDA_RT_CALL(cudaFree(d_output));
 
-    return output_signal;
+    printf("C++ SIDE: ");
+    for (int i = 0; i < 4; ++i) {
+        printf("(%g + %g) ", output[i].real(), output[i].imag());
+    }
+	printf("\n");
+
+    return output;
 }
