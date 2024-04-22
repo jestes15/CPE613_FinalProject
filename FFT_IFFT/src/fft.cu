@@ -139,7 +139,7 @@ std::vector<std::complex<float>> _fft_cpu(std::vector<std::complex<float>> input
     return output;
 }
 
-std::vector<std::complex<float>> _fft_cuda_reference(std::vector<std::complex<float>> input_signal, int polling_rate)
+std::vector<std::complex<float>> _fft_cuda_reference(std::vector<std::complex<float>> input_signal, int fft_size)
 {
     cufftHandle plan;
     cudaStream_t stream = NULL;
@@ -149,7 +149,7 @@ std::vector<std::complex<float>> _fft_cuda_reference(std::vector<std::complex<fl
     cufftComplex *d_data = nullptr;
 
     CUFFT_CALL(cufftCreate(&plan));
-    CUFFT_CALL(cufftPlan1d(&plan, input_signal.size(), CUFFT_C2C, 2));
+    CUFFT_CALL(cufftPlan1d(&plan, fft_size, CUFFT_C2C, (input_signal.size() / fft_size)));
 
     CUDA_RT_CALL(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
     CUFFT_CALL(cufftSetStream(plan, stream));

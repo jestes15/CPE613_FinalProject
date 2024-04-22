@@ -627,7 +627,6 @@ std::vector<std::complex<float>> _manual_fft_impl(std::vector<std::complex<float
     CUDA_RT_CALL(cudaMalloc((void **)&d_output, sizeof(cuComplex) * output_size));
 
     CUDA_RT_CALL(cudaMemcpy(d_input, input_signal.data(), input_size * sizeof(cuComplex), cudaMemcpyHostToDevice));
-    // FFT_external_benchmark(d_input, d_output, FFT_size, (h_input.size() / FFT_size));
 
     dim3 gridSize((input_signal.size() / fft_size), 1, 1);
     dim3 blockSize(fft_size / 4, 1, 1);
@@ -646,35 +645,35 @@ std::vector<std::complex<float>> _manual_fft_impl(std::vector<std::complex<float
     switch (fft_size)
     {
     case 32:
-        shared_memory_fft<FFT_32_forward><<<gridSize, blockSize>>>(d_output, d_input);
+        shared_memory_fft<FFT_32_forward_noreorder><<<gridSize, blockSize>>>(d_output, d_input);
         break;
 
     case 64:
-        shared_memory_fft<FFT_64_forward><<<gridSize, blockSize>>>(d_output, d_input);
+        shared_memory_fft<FFT_64_forward_noreorder><<<gridSize, blockSize>>>(d_output, d_input);
         break;
 
     case 128:
-        shared_memory_fft<FFT_128_forward><<<gridSize, blockSize>>>(d_output, d_input);
+        shared_memory_fft<FFT_128_forward_noreorder><<<gridSize, blockSize>>>(d_output, d_input);
         break;
 
     case 256:
-        shared_memory_fft<FFT_256_forward><<<gridSize, blockSize>>>(d_output, d_input);
+        shared_memory_fft<FFT_256_forward_noreorder><<<gridSize, blockSize>>>(d_output, d_input);
         break;
 
     case 512:
-        shared_memory_fft<FFT_512_forward><<<gridSize, blockSize>>>(d_output, d_input);
+        shared_memory_fft<FFT_512_forward_noreorder><<<gridSize, blockSize>>>(d_output, d_input);
         break;
 
     case 1024:
-        shared_memory_fft<FFT_1024_forward><<<gridSize, blockSize>>>(d_output, d_input);
+        shared_memory_fft<FFT_1024_forward_noreorder><<<gridSize, blockSize>>>(d_output, d_input);
         break;
 
     case 2048:
-        shared_memory_fft<FFT_2048_forward><<<gridSize, blockSize>>>(d_output, d_input);
+        shared_memory_fft<FFT_2048_forward_noreorder><<<gridSize, blockSize>>>(d_output, d_input);
         break;
 
     case 4096:
-        shared_memory_fft<FFT_4096_forward><<<gridSize, blockSize>>>(d_output, d_input);
+        shared_memory_fft<FFT_4096_forward_noreorder><<<gridSize, blockSize>>>(d_output, d_input);
         break;
 
     default:

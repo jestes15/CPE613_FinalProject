@@ -27,9 +27,11 @@ Signal8 = np.sin(2 * np.pi * time * F8)
 combined_signals = Signal1 + Signal2 + Signal3 + \
     Signal4 + Signal5 + Signal6 + Signal7 + Signal8
 
+print(combined_signals[0:3])
+
 np_fft = np_fft(combined_signals.astype(complex))
 fft_sig = fft(combined_signals.astype(complex))
-fft_cuda = fft_reference_gpu(combined_signals.astype(complex), Fs)
+fft_cuda = fft_reference_gpu(combined_signals.astype(complex), 1024)
 fft_r2c_mkl = MKL_forward_fft_R2C(combined_signals)
 fft_c2c_mkl = MKL_forward_fft_C2C(combined_signals.astype(complex))
 fft_c2c_manual_impl = manual_fft_impl(combined_signals.astype(complex), 1024)
