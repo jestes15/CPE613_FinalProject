@@ -100,7 +100,7 @@ __global__ void fft_kernel(const cuFloatComplex *x, cuFloatComplex *Y, uint32_t 
     uint32_t rev;
     cuFloatComplex a, twiddle, b;
 
-	int mh, k, j, kj;
+    int mh, k, j, kj;
     float tr, ti;
 
     rev = reverse_bits_gpu(2 * i);
@@ -140,41 +140,6 @@ std::vector<std::complex<float>> _fft_cpu(std::vector<std::complex<float>> input
 }
 
 std::vector<std::complex<float>> _fft_cuda_reference(std::vector<std::complex<float>> input_signal, int polling_rate)
-{
-    cufftHandle plan;
-    cudaStream_t stream = NULL;
-
-    std::vector<std::complex<float>> output_signal(input_signal.size());
-
-    cufftComplex *d_data = nullptr;
-
-    CUFFT_CALL(cufftCreate(&plan));
-    CUFFT_CALL(cufftPlan1d(&plan, input_signal.size(), CUFFT_C2C, 2));
-
-    CUDA_RT_CALL(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
-    CUFFT_CALL(cufftSetStream(plan, stream));
-
-    // Create device data arrays
-    CUDA_RT_CALL(cudaMalloc(reinterpret_cast<void **>(&d_data), sizeof(std::complex<float>) * input_signal.size()));
-    CUDA_RT_CALL(cudaMemcpyAsync(d_data, input_signal.data(), sizeof(std::complex<float>) * input_signal.size(),
-                                 cudaMemcpyHostToDevice, stream));
-
-    CUFFT_CALL(cufftExecC2C(plan, d_data, d_data, CUFFT_FORWARD));
-
-    CUDA_RT_CALL(cudaMemcpyAsync(output_signal.data(), d_data, sizeof(std::complex<float>) * output_signal.size(),
-                                 cudaMemcpyDeviceToHost, stream));
-
-    CUDA_RT_CALL(cudaStreamSynchronize(stream));
-
-    CUDA_RT_CALL(cudaFree(d_data))
-    CUFFT_CALL(cufftDestroy(plan));
-    CUDA_RT_CALL(cudaStreamDestroy(stream));
-    CUDA_RT_CALL(cudaDeviceReset());
-
-    return output_signal;
-}
-
-std::vector<std::complex<float>> _fft_cuda_referencexxx(std::vector<std::complex<float>> input_signal, int polling_rate)
 {
     cufftHandle plan;
     cudaStream_t stream = NULL;

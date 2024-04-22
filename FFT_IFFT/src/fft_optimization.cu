@@ -6,20 +6,33 @@
 #include <stdio.h>
 #include <vector>
 
+#include "fft.h"
 #include "fft_param.cuh"
 
-#define NREUSES 100
+// CUDA API error checking
+#ifndef CUDA_RT_CALL
+#define CUDA_RT_CALL(call)                                                                                             \
+    {                                                                                                                  \
+        auto status = static_cast<cudaError_t>(call);                                                                  \
+        if (status != cudaSuccess)                                                                                     \
+            fprintf(stderr,                                                                                            \
+                    "ERROR: CUDA RT call \"%s\" in line %d of file %s failed "                                         \
+                    "with "                                                                                            \
+                    "%s (%d).\n",                                                                                      \
+                    #call, __LINE__, __FILE__, cudaGetErrorString(status), status);                                    \
+    }
+#endif // CUDA_RT_CALL
 
-__device__ __inline__ float2 Get_W_value(int N, int m)
+__device__ __inline__ cuComplex Get_W_value(int N, int m)
 {
-    float2 ctemp;
+    cuComplex ctemp;
     sincosf(-6.283185308f * fdividef((float)m, (float)N), &ctemp.y, &ctemp.x);
     return (ctemp);
 }
 
-__device__ __inline__ float2 Get_W_value_inverse(int N, int m)
+__device__ __inline__ cuComplex Get_W_value_inverse(int N, int m)
 {
-    float2 ctemp;
+    cuComplex ctemp;
     sincosf(6.283185308f * fdividef((float)m, (float)N), &ctemp.y, &ctemp.x);
     return (ctemp);
 }
@@ -39,10 +52,10 @@ __device__ __inline__ float shfl_down(float *value, int par)
     return (__shfl_down_sync(0xffffffff, (*value), par));
 }
 
-__device__ __inline__ void reorder_4_register(float2 *A_DFT_value, float2 *B_DFT_value, float2 *C_DFT_value,
-                                              float2 *D_DFT_value)
+__device__ __inline__ void reorder_4_register(cuComplex *A_DFT_value, cuComplex *B_DFT_value, cuComplex *C_DFT_value,
+                                              cuComplex *D_DFT_value)
 {
-    float2 Af2temp, Bf2temp, Cf2temp, Df2temp;
+    cuComplex Af2temp, Bf2temp, Cf2temp, Df2temp;
     unsigned int target = (((unsigned int)__brev((threadIdx.x & 3))) >> (30)) + 4 * (threadIdx.x >> 2);
     Af2temp.x = shfl(&(A_DFT_value->x), target);
     Af2temp.y = shfl(&(A_DFT_value->y), target);
@@ -59,10 +72,10 @@ __device__ __inline__ void reorder_4_register(float2 *A_DFT_value, float2 *B_DFT
     (*D_DFT_value) = Df2temp;
 }
 
-__device__ __inline__ void reorder_8_register(float2 *A_DFT_value, float2 *B_DFT_value, float2 *C_DFT_value,
-                                              float2 *D_DFT_value, int *local_id)
+__device__ __inline__ void reorder_8_register(cuComplex *A_DFT_value, cuComplex *B_DFT_value, cuComplex *C_DFT_value,
+                                              cuComplex *D_DFT_value, int *local_id)
 {
-    float2 Af2temp, Bf2temp, Cf2temp, Df2temp;
+    cuComplex Af2temp, Bf2temp, Cf2temp, Df2temp;
     unsigned int target = (((unsigned int)__brev(((*local_id) & 7))) >> (29)) + 8 * ((*local_id) >> 3);
     Af2temp.x = shfl(&(A_DFT_value->x), target);
     Af2temp.y = shfl(&(A_DFT_value->y), target);
@@ -79,10 +92,10 @@ __device__ __inline__ void reorder_8_register(float2 *A_DFT_value, float2 *B_DFT
     (*D_DFT_value) = Df2temp;
 }
 
-__device__ __inline__ void reorder_16_register(float2 *A_DFT_value, float2 *B_DFT_value, float2 *C_DFT_value,
-                                               float2 *D_DFT_value, int *local_id)
+__device__ __inline__ void reorder_16_register(cuComplex *A_DFT_value, cuComplex *B_DFT_value, cuComplex *C_DFT_value,
+                                               cuComplex *D_DFT_value, int *local_id)
 {
-    float2 Af2temp, Bf2temp, Cf2temp, Df2temp;
+    cuComplex Af2temp, Bf2temp, Cf2temp, Df2temp;
     unsigned int target = (((unsigned int)__brev(((*local_id) & 15))) >> (28)) + 16 * ((*local_id) >> 4);
     Af2temp.x = shfl(&(A_DFT_value->x), target);
     Af2temp.y = shfl(&(A_DFT_value->y), target);
@@ -99,10 +112,10 @@ __device__ __inline__ void reorder_16_register(float2 *A_DFT_value, float2 *B_DF
     (*D_DFT_value) = Df2temp;
 }
 
-__device__ __inline__ void reorder_32_register(float2 *A_DFT_value, float2 *B_DFT_value, float2 *C_DFT_value,
-                                               float2 *D_DFT_value)
+__device__ __inline__ void reorder_32_register(cuComplex *A_DFT_value, cuComplex *B_DFT_value, cuComplex *C_DFT_value,
+                                               cuComplex *D_DFT_value)
 {
-    float2 Af2temp, Bf2temp, Cf2temp, Df2temp;
+    cuComplex Af2temp, Bf2temp, Cf2temp, Df2temp;
     unsigned int target = ((unsigned int)__brev(threadIdx.x)) >> (27);
     Af2temp.x = shfl(&(A_DFT_value->x), target);
     Af2temp.y = shfl(&(A_DFT_value->y), target);
@@ -120,15 +133,15 @@ __device__ __inline__ void reorder_32_register(float2 *A_DFT_value, float2 *B_DF
 }
 
 template <class const_params>
-__device__ __inline__ void reorder_32(float2 *s_input, float2 *A_DFT_value, float2 *B_DFT_value, float2 *C_DFT_value,
-                                      float2 *D_DFT_value)
+__device__ __inline__ void reorder_32(cuComplex *s_input, cuComplex *A_DFT_value, cuComplex *B_DFT_value,
+                                      cuComplex *C_DFT_value, cuComplex *D_DFT_value)
 {
     reorder_32_register(A_DFT_value, B_DFT_value, C_DFT_value, D_DFT_value);
 }
 
 template <class const_params>
-__device__ __inline__ void reorder_64(float2 *s_input, float2 *A_DFT_value, float2 *B_DFT_value, float2 *C_DFT_value,
-                                      float2 *D_DFT_value)
+__device__ __inline__ void reorder_64(cuComplex *s_input, cuComplex *A_DFT_value, cuComplex *B_DFT_value,
+                                      cuComplex *C_DFT_value, cuComplex *D_DFT_value)
 {
     int local_id = threadIdx.x & (const_params::warp - 1);
     int warp_id = threadIdx.x / const_params::warp;
@@ -154,8 +167,8 @@ __device__ __inline__ void reorder_64(float2 *s_input, float2 *A_DFT_value, floa
 }
 
 template <class const_params>
-__device__ __inline__ void reorder_128(float2 *s_input, float2 *A_DFT_value, float2 *B_DFT_value, float2 *C_DFT_value,
-                                       float2 *D_DFT_value)
+__device__ __inline__ void reorder_128(cuComplex *s_input, cuComplex *A_DFT_value, cuComplex *B_DFT_value,
+                                       cuComplex *C_DFT_value, cuComplex *D_DFT_value)
 {
     int local_id = threadIdx.x & (const_params::warp - 1);
     int warp_id = threadIdx.x / const_params::warp;
@@ -183,8 +196,8 @@ __device__ __inline__ void reorder_128(float2 *s_input, float2 *A_DFT_value, flo
 }
 
 template <class const_params>
-__device__ __inline__ void reorder_256(float2 *s_input, float2 *A_DFT_value, float2 *B_DFT_value, float2 *C_DFT_value,
-                                       float2 *D_DFT_value)
+__device__ __inline__ void reorder_256(cuComplex *s_input, cuComplex *A_DFT_value, cuComplex *B_DFT_value,
+                                       cuComplex *C_DFT_value, cuComplex *D_DFT_value)
 {
     int local_id = threadIdx.x & (const_params::warp - 1);
     int warp_id = threadIdx.x / const_params::warp;
@@ -213,8 +226,8 @@ __device__ __inline__ void reorder_256(float2 *s_input, float2 *A_DFT_value, flo
 }
 
 template <class const_params>
-__device__ __inline__ void reorder_512(float2 *s_input, float2 *A_DFT_value, float2 *B_DFT_value, float2 *C_DFT_value,
-                                       float2 *D_DFT_value)
+__device__ __inline__ void reorder_512(cuComplex *s_input, cuComplex *A_DFT_value, cuComplex *B_DFT_value,
+                                       cuComplex *C_DFT_value, cuComplex *D_DFT_value)
 {
     int local_id = threadIdx.x & (const_params::warp - 1);
     int warp_id = threadIdx.x / const_params::warp;
@@ -243,8 +256,8 @@ __device__ __inline__ void reorder_512(float2 *s_input, float2 *A_DFT_value, flo
 }
 
 template <class const_params>
-__device__ __inline__ void reorder_1024(float2 *s_input, float2 *A_DFT_value, float2 *B_DFT_value, float2 *C_DFT_value,
-                                        float2 *D_DFT_value)
+__device__ __inline__ void reorder_1024(cuComplex *s_input, cuComplex *A_DFT_value, cuComplex *B_DFT_value,
+                                        cuComplex *C_DFT_value, cuComplex *D_DFT_value)
 {
     int local_id = threadIdx.x & (const_params::warp - 1);
     int warp_id = threadIdx.x / const_params::warp;
@@ -273,8 +286,8 @@ __device__ __inline__ void reorder_1024(float2 *s_input, float2 *A_DFT_value, fl
 }
 
 template <class const_params>
-__device__ __inline__ void reorder_2048(float2 *s_input, float2 *A_DFT_value, float2 *B_DFT_value, float2 *C_DFT_value,
-                                        float2 *D_DFT_value)
+__device__ __inline__ void reorder_2048(cuComplex *s_input, cuComplex *A_DFT_value, cuComplex *B_DFT_value,
+                                        cuComplex *C_DFT_value, cuComplex *D_DFT_value)
 {
     int local_id = threadIdx.x & (const_params::warp - 1);
     int warp_id = threadIdx.x / const_params::warp;
@@ -304,8 +317,8 @@ __device__ __inline__ void reorder_2048(float2 *s_input, float2 *A_DFT_value, fl
 }
 
 template <class const_params>
-__device__ __inline__ void reorder_4096(float2 *s_input, float2 *A_DFT_value, float2 *B_DFT_value, float2 *C_DFT_value,
-                                        float2 *D_DFT_value)
+__device__ __inline__ void reorder_4096(cuComplex *s_input, cuComplex *A_DFT_value, cuComplex *B_DFT_value,
+                                        cuComplex *C_DFT_value, cuComplex *D_DFT_value)
 {
     int local_id = threadIdx.x & (const_params::warp - 1);
     int warp_id = threadIdx.x / const_params::warp;
@@ -332,11 +345,11 @@ __device__ __inline__ void reorder_4096(float2 *s_input, float2 *A_DFT_value, fl
     reorder_128<const_params>(s_input, A_DFT_value, B_DFT_value, C_DFT_value, D_DFT_value);
 }
 
-template <class const_params> __device__ void execute_shared_memory_fft(float2 *s_input)
+template <class const_params> __device__ void execute_shared_memory_fft(cuComplex *s_input)
 {
-    float2 A_DFT_value, B_DFT_value, C_DFT_value, D_DFT_value;
-    float2 W;
-    float2 Aftemp, Bftemp, Cftemp, Dftemp;
+    cuComplex A_DFT_value, B_DFT_value, C_DFT_value, D_DFT_value;
+    cuComplex W;
+    cuComplex Aftemp, Bftemp, Cftemp, Dftemp;
 
     int j, m_param;
     int parity, itemp;
@@ -388,7 +401,7 @@ template <class const_params> __device__ void execute_shared_memory_fft(float2 *
     PoT = 2;
     PoTp1 = 4;
 
-	#pragma unroll
+#pragma unroll
     for (q = 1; q < 5; q++)
     {
         m_param = (local_id & (PoTp1 - 1));
@@ -553,9 +566,9 @@ template <class const_params> __device__ void execute_shared_memory_fft(float2 *
     }
 }
 
-template <class const_params> __global__ void shared_memory_fft(float2 *d_input, float2 *d_output)
+template <class const_params> __global__ void shared_memory_fft(cuComplex *d_output, cuComplex *d_input)
 {
-    __shared__ float2 s_input[const_params::fft_shared_memory_required];
+    __shared__ cuComplex s_input[const_params::fft_shared_memory_required];
 
     s_input[threadIdx.x] = d_input[threadIdx.x + blockIdx.x * const_params::fft_length];
     s_input[threadIdx.x + const_params::fft_length_quarter] =
@@ -566,7 +579,7 @@ template <class const_params> __global__ void shared_memory_fft(float2 *d_input,
         d_input[threadIdx.x + blockIdx.x * const_params::fft_length + const_params::fft_length_three_quarters];
 
     __syncthreads();
-    do_SMFFT_CT_DIT<const_params>(s_input);
+    execute_shared_memory_fft<const_params>(s_input);
 
     __syncthreads();
     d_output[threadIdx.x + blockIdx.x * const_params::fft_length] = s_input[threadIdx.x];
@@ -578,7 +591,87 @@ template <class const_params> __global__ void shared_memory_fft(float2 *d_input,
         s_input[threadIdx.x + const_params::fft_length_three_quarters];
 }
 
-std::vector<std::complex<float>> manual_fft_impl(std::vector<std::complex<float>> input)
+std::vector<std::complex<float>> _manual_fft_impl(std::vector<std::complex<float>> input_signal)
 {
-    int fft_size = input.size();
+    int fft_size = 1024;
+
+    if (input_signal.size() % fft_size != 0)
+    {
+        printf("Input signal must be a power of 2\n");
+        exit(EXIT_FAILURE);
+    }
+
+    std::vector<std::complex<float>> output_signal(input_signal.size());
+    cuComplex *d_input = nullptr, *d_output = nullptr;
+    int number_of_ffts = input_signal.size() / fft_size;
+
+    // Create device data arrays
+    CUDA_RT_CALL(cudaMalloc(reinterpret_cast<void **>(&d_input), sizeof(cuComplex) * input_signal.size()));
+    CUDA_RT_CALL(cudaMalloc(reinterpret_cast<void **>(&d_output), sizeof(cuComplex) * output_signal.size()));
+
+    CUDA_RT_CALL(cudaMemcpy(d_input, input_signal.data(), sizeof(std::complex<float>) * input_signal.size(),
+                            cudaMemcpyHostToDevice));
+
+    dim3 gridSize(number_of_ffts, 1, 1);
+    dim3 blockSize(fft_size / 4, 1, 1);
+    if (fft_size == 32)
+    {
+        gridSize.x = number_of_ffts / 4;
+        blockSize.x = 32;
+    }
+    if (fft_size == 64)
+    {
+        gridSize.x = number_of_ffts / 2;
+        blockSize.x = 32;
+    }
+
+    //---------> FFT part
+    switch (fft_size)
+    {
+    case 32:
+        shared_memory_fft<FFT_32_forward><<<gridSize, blockSize>>>(d_input, d_output);
+        break;
+
+    case 64:
+        shared_memory_fft<FFT_64_forward><<<gridSize, blockSize>>>(d_input, d_output);
+        break;
+
+    case 128:
+        shared_memory_fft<FFT_128_forward><<<gridSize, blockSize>>>(d_input, d_output);
+        break;
+
+    case 256:
+        shared_memory_fft<FFT_256_forward><<<gridSize, blockSize>>>(d_input, d_output);
+        break;
+
+    case 512:
+        shared_memory_fft<FFT_512_forward><<<gridSize, blockSize>>>(d_input, d_output);
+        break;
+
+    case 1024:
+        shared_memory_fft<FFT_1024_forward><<<gridSize, blockSize>>>(d_input, d_output);
+        break;
+
+    case 2048:
+        shared_memory_fft<FFT_2048_forward><<<gridSize, blockSize>>>(d_input, d_output);
+        break;
+
+    case 4096:
+        shared_memory_fft<FFT_4096_forward><<<gridSize, blockSize>>>(d_input, d_output);
+        break;
+
+    default:
+        printf("Error wrong FFT length!\n");
+        break;
+    }
+
+    CUDA_RT_CALL(cudaDeviceSynchronize());
+
+    CUDA_RT_CALL(cudaMemcpy(output_signal.data(), d_output, sizeof(std::complex<float>) * output_signal.size(),
+                            cudaMemcpyDeviceToHost));
+
+    CUDA_RT_CALL(cudaFree(d_input))
+    CUDA_RT_CALL(cudaFree(d_output));
+
+    return output_signal;
 }

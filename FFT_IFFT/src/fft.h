@@ -15,4 +15,6 @@ std::vector<std::complex<float>> _forward_fft_C2C(std::vector<std::complex<float
 std::vector<float> _backward_fft_C2R(std::vector<std::complex<float>> in, int original_size);
 std::vector<float> _backward_fft_C2R_Complex(std::vector<std::complex<float>> in);
 
+std::vector<std::complex<float>> _manual_fft_impl(std::vector<std::complex<float>> input);
+
 #endif

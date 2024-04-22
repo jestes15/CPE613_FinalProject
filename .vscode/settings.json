@@ -86,6 +86,7 @@
 		"print": "cpp",
 		"hash_map": "cpp",
 		"alignedvector3": "cpp",
-		"nnls": "cpp"
+		"nnls": "cpp",
+		"*.inc": "cpp"
 	}
 }

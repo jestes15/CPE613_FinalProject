@@ -107,15 +107,15 @@ except AttributeError:
 
 
 ext = Extension('custom_fft',
-                sources=['src/fft.cu', 'src/mkl_fft.cpp', 'fft.pyx'],
+                sources=['src/fft.cu', 'src/fft_optimization.cu', 'src/mkl_fft.cpp', 'fft.pyx'],
                 library_dirs=[CUDA['lib64']],
                 libraries=['cudart', 'cufft'],
                 language='c++',
                 runtime_library_dirs=[CUDA['lib64']],
                 extra_compile_args={
-                    'gcc': ['-m64', '-I/opt/intel/oneapi/mkl/latest/include'],
+                    'gcc': ['-m64', '-march=native', '-I/opt/intel/oneapi/mkl/latest/include'],
                     'nvcc': ['-I/opt/intel/oneapi/mkl/latest/include', '-L/opt/intel/oneapi/mkl/latest/lib'
-                             '-arch=sm_89', '-O2', '--ptxas-options=-v', '-c',
+                             '-arch=sm_89', '-O3', '--ptxas-options=-v', '-c',
                              '--compiler-options', "'-fPIC'"
                              ]
                 },
