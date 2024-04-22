@@ -1,8 +1,10 @@
+#include <complex>
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
 #include <cufft.h>
 #include <stdio.h>
+#include <vector>
 
 #include "fft_param.cuh"
 
@@ -312,7 +314,6 @@ __device__ __inline__ void reorder_4096(float2 *s_input, float2 *A_DFT_value, fl
     reorder_32_register(A_DFT_value, B_DFT_value, C_DFT_value, D_DFT_value);
 
     __syncthreads();
-    // unsigned int sm_store_pos = (local_id>>0) + 32*(local_id&0) + warp_id*132;
     unsigned int sm_store_pos = local_id + warp_id * 132;
     s_input[sm_store_pos] = *A_DFT_value;
     s_input[sm_store_pos + 33] = *B_DFT_value;
@@ -321,7 +322,6 @@ __device__ __inline__ void reorder_4096(float2 *s_input, float2 *A_DFT_value, fl
 
     // Read shared memory to get reordered input
     __syncthreads();
-    // unsigned int sm_read_pos = (local_id&31)*33 + warp_id*2;
     unsigned int sm_read_pos = local_id * 33 + warp_id;
     *A_DFT_value = s_input[sm_read_pos + 0];
     *B_DFT_value = s_input[sm_read_pos + 1056];
@@ -350,23 +350,23 @@ template <class const_params> __device__ void execute_shared_memory_fft(float2 *
     C_DFT_value = s_input[local_id + (warp_id << 2) * const_params::warp + 2 * const_params::warp];
     D_DFT_value = s_input[local_id + (warp_id << 2) * const_params::warp + 3 * const_params::warp];
 
-    if (const_params::fft_reorder)
+    if constexpr (const_params::fft_reorder)
     {
-        if (const_params::fft_exp == 5)
+        if constexpr (const_params::fft_exp == 5)
             reorder_32<const_params>(s_input, &A_DFT_value, &B_DFT_value, &C_DFT_value, &D_DFT_value);
-        else if (const_params::fft_exp == 6)
+        else if constexpr (const_params::fft_exp == 6)
             reorder_64<const_params>(s_input, &A_DFT_value, &B_DFT_value, &C_DFT_value, &D_DFT_value);
-        else if (const_params::fft_exp == 7)
+        else if constexpr (const_params::fft_exp == 7)
             reorder_128<const_params>(s_input, &A_DFT_value, &B_DFT_value, &C_DFT_value, &D_DFT_value);
-        else if (const_params::fft_exp == 8)
+        else if constexpr (const_params::fft_exp == 8)
             reorder_256<const_params>(s_input, &A_DFT_value, &B_DFT_value, &C_DFT_value, &D_DFT_value);
-        else if (const_params::fft_exp == 9)
+        else if constexpr (const_params::fft_exp == 9)
             reorder_512<const_params>(s_input, &A_DFT_value, &B_DFT_value, &C_DFT_value, &D_DFT_value);
-        else if (const_params::fft_exp == 10)
+        else if constexpr (const_params::fft_exp == 10)
             reorder_1024<const_params>(s_input, &A_DFT_value, &B_DFT_value, &C_DFT_value, &D_DFT_value);
-        else if (const_params::fft_exp == 11)
+        else if constexpr (const_params::fft_exp == 11)
             reorder_2048<const_params>(s_input, &A_DFT_value, &B_DFT_value, &C_DFT_value, &D_DFT_value);
-        else if (const_params::fft_exp == 12)
+        else if constexpr (const_params::fft_exp == 12)
             reorder_4096<const_params>(s_input, &A_DFT_value, &B_DFT_value, &C_DFT_value, &D_DFT_value);
     }
 
@@ -395,7 +395,7 @@ template <class const_params> __device__ void execute_shared_memory_fft(float2 *
         itemp = m_param >> q;
         parity = ((itemp << 1) - 1);
 
-        if (const_params::fft_direction)
+        if constexpr (const_params::fft_direction)
             W = Get_W_value_inverse(PoTp1, itemp * m_param);
         else
             W = Get_W_value(PoTp1, itemp * m_param);
@@ -555,7 +555,7 @@ template <class const_params> __device__ void execute_shared_memory_fft(float2 *
 
 template <class const_params> __global__ void shared_memory_fft(float2 *d_input, float2 *d_output)
 {
-    __shared__ float2 s_input[const_params::fft_sm_required];
+    __shared__ float2 s_input[const_params::fft_shared_memory_required];
 
     s_input[threadIdx.x] = d_input[threadIdx.x + blockIdx.x * const_params::fft_length];
     s_input[threadIdx.x + const_params::fft_length_quarter] =
@@ -576,4 +576,9 @@ template <class const_params> __global__ void shared_memory_fft(float2 *d_input,
         s_input[threadIdx.x + const_params::fft_length_half];
     d_output[threadIdx.x + blockIdx.x * const_params::fft_length + const_params::fft_length_three_quarters] =
         s_input[threadIdx.x + const_params::fft_length_three_quarters];
+}
+
+std::vector<std::complex<float>> manual_fft_impl(std::vector<std::complex<float>> input)
+{
+    int fft_size = input.size();
 }
