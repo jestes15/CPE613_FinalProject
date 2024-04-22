@@ -3,17 +3,17 @@ import numpy as np
 from numpy.fft import fft as np_fft
 from custom_fft import fft, fft_reference_gpu, MKL_forward_fft_R2C, MKL_forward_fft_C2C, manual_fft_impl # type: ignore
 
-Fs = 2 ** 17
+Fs = 4096
 time = np.arange(0, 1, 1/Fs)
 
-F1 = 191
-F2 = 1535
-F3 = 13845
-F4 = 6661
-F5 = 22648
-F6 = 49471
-F7 = 38661
-F8 = 44117
+F1 = 30
+F2 = 60
+F3 = 90
+F4 = 120
+F5 = 150
+F6 = 180
+F7 = 512
+F8 = 1024
 
 Signal1 = np.sin(2 * np.pi * time * F1)
 Signal2 = np.sin(2 * np.pi * time * F2)
@@ -27,14 +27,12 @@ Signal8 = np.sin(2 * np.pi * time * F8)
 combined_signals = Signal1 + Signal2 + Signal3 + \
     Signal4 + Signal5 + Signal6 + Signal7 + Signal8
 
-print(combined_signals[0:3])
-
 np_fft = np_fft(combined_signals.astype(complex))
 fft_sig = fft(combined_signals.astype(complex))
 fft_cuda = fft_reference_gpu(combined_signals.astype(complex))
 fft_r2c_mkl = MKL_forward_fft_R2C(combined_signals)
 fft_c2c_mkl = MKL_forward_fft_C2C(combined_signals.astype(complex))
-fft_c2c_manual_impl = manual_fft_impl(combined_signals.astype(complex), 1024)
+fft_c2c_manual_impl = manual_fft_impl(combined_signals.astype(complex), 4096)
 
 print(fft_cuda[0:4])
 print(fft_c2c_manual_impl[0:4])

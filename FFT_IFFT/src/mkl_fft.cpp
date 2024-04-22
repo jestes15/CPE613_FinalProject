@@ -5,9 +5,9 @@ DFTI_DESCRIPTOR *create_descriptor(MKL_LONG length)
     DFTI_DESCRIPTOR *handle = nullptr;
     bool valid = (DFTI_NO_ERROR == DftiCreateDescriptor(&handle, DFTI_DOUBLE, DFTI_REAL, 1, length)) &&
                  (DFTI_NO_ERROR == DftiSetValue(handle, DFTI_PLACEMENT, DFTI_NOT_INPLACE)) &&
-                 (DFTI_NO_ERROR == DftiSetValue(handle, DFTI_CONJUGATE_EVEN_STORAGE, DFTI_COMPLEX_COMPLEX));
-    (DFTI_NO_ERROR == DftiSetValue(handle, DFTI_FORWARD_SCALE, 1. / length)) &&
-        (DFTI_NO_ERROR == DftiCommitDescriptor(handle));
+                 (DFTI_NO_ERROR == DftiSetValue(handle, DFTI_CONJUGATE_EVEN_STORAGE, DFTI_COMPLEX_COMPLEX)) &&
+                 (DFTI_NO_ERROR == DftiSetValue(handle, DFTI_FORWARD_SCALE, 1. / length)) &&
+                 (DFTI_NO_ERROR == DftiCommitDescriptor(handle));
     if (!valid)
     {
         DftiFreeDescriptor(&handle);

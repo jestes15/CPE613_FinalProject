@@ -149,7 +149,7 @@ std::vector<std::complex<float>> _fft_cuda_reference(std::vector<std::complex<fl
     cufftComplex *d_data = nullptr;
 
     CUFFT_CALL(cufftCreate(&plan));
-    CUFFT_CALL(cufftPlan1d(&plan, input_signal.size(), CUFFT_C2C, 2));
+    CUFFT_CALL(cufftPlan1d(&plan, input_signal.size(), CUFFT_C2C, 1));
 
     CUDA_RT_CALL(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
     CUFFT_CALL(cufftSetStream(plan, stream));

@@ -347,7 +347,7 @@ __device__ __inline__ void reorder_4096(cuComplex *s_input, cuComplex *A_DFT_val
     reorder_128<const_params>(s_input, A_DFT_value, B_DFT_value, C_DFT_value, D_DFT_value);
 }
 
-template <class const_params> __device__ void do_SMFFT_CT_DIT(cuComplex *s_input)
+template <class const_params> __device__ void execute_fft(cuComplex *s_input)
 {
     cuComplex A_DFT_value, B_DFT_value, C_DFT_value, D_DFT_value;
     cuComplex W;
@@ -583,7 +583,7 @@ template <class const_params> __global__ void shared_memory_fft(cuComplex *d_out
         d_input[threadIdx.x + blockIdx.x * const_params::fft_length + const_params::fft_length_three_quarters];
 
     __syncthreads();
-    do_SMFFT_CT_DIT<const_params>(s_input);
+    execute_fft<const_params>(s_input);
 
     __syncthreads();
     d_output[threadIdx.x + blockIdx.x * const_params::fft_length] = s_input[threadIdx.x];
@@ -613,7 +613,6 @@ std::vector<std::complex<float>> _manual_fft_impl(std::vector<std::complex<float
     cuComplex *d_output;
     CUDA_RT_CALL(cudaMalloc((void **)&d_input, sizeof(cuComplex) * input_size));
     CUDA_RT_CALL(cudaMalloc((void **)&d_output, sizeof(cuComplex) * output_size));
-
     CUDA_RT_CALL(cudaMemcpy(d_input, input_signal.data(), input_size * sizeof(cuComplex), cudaMemcpyHostToDevice));
 
     dim3 gridSize((input_signal.size() / fft_size), 1, 1);
@@ -669,22 +668,9 @@ std::vector<std::complex<float>> _manual_fft_impl(std::vector<std::complex<float
         break;
     }
 
-    CUDA_RT_CALL(cudaGetLastError());
     CUDA_RT_CALL(cudaMemcpy(output.data(), d_output, output_size * sizeof(cuComplex), cudaMemcpyDeviceToHost));
-
-    //---------> error check -----
-    CUDA_RT_CALL(cudaGetLastError());
-
-    //---------> Feeing allocated resources
     CUDA_RT_CALL(cudaFree(d_input));
     CUDA_RT_CALL(cudaFree(d_output));
-
-    printf("C++ SIDE: ");
-    for (int i = 0; i < 4; ++i)
-    {
-        printf("(%g + %g) ", output[i].real(), output[i].imag());
-    }
-    printf("\n");
 
     return output;
 }
