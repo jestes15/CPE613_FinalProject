@@ -39,29 +39,17 @@ __device__ __inline__ cuComplex Get_W_value_inverse(int N, int m)
 
 __device__ __inline__ float shfl(float *value, int par)
 {
-#if (CUDART_VERSION >= 9000)
     return (__shfl_sync(0xffffffff, (*value), par));
-#else
-    return (__shfl((*value), par));
-#endif
 }
 
 __device__ __inline__ float shfl_xor(float *value, int par)
 {
-#if (CUDART_VERSION >= 9000)
     return (__shfl_xor_sync(0xffffffff, (*value), par));
-#else
-    return (__shfl_xor((*value), par));
-#endif
 }
 
 __device__ __inline__ float shfl_down(float *value, int par)
 {
-#if (CUDART_VERSION >= 9000)
     return (__shfl_down_sync(0xffffffff, (*value), par));
-#else
-    return (__shfl_down((*value), par));
-#endif
 }
 
 __device__ __inline__ void reorder_4_register(cuComplex *A_DFT_value, cuComplex *B_DFT_value, cuComplex *C_DFT_value,
@@ -615,8 +603,8 @@ std::vector<std::complex<float>> _manual_fft_impl(std::vector<std::complex<float
     if (fft_size == 64 && ((input_signal.size() / fft_size) % 2) != 0)
         return {};
 
-    size_t input_size = input_signal.size();  // FFT_size * nFFTs;
-    size_t output_size = input_signal.size(); // FFT_size * nFFTs;
+    size_t input_size = input_signal.size();
+    size_t output_size = input_signal.size();
 
     std::vector<std::complex<float>> output(output_size);
 
@@ -645,35 +633,35 @@ std::vector<std::complex<float>> _manual_fft_impl(std::vector<std::complex<float
     switch (fft_size)
     {
     case 32:
-        shared_memory_fft<FFT_32_forward_noreorder><<<gridSize, blockSize>>>(d_output, d_input);
+        shared_memory_fft<FFT_32_forward><<<gridSize, blockSize>>>(d_output, d_input);
         break;
 
     case 64:
-        shared_memory_fft<FFT_64_forward_noreorder><<<gridSize, blockSize>>>(d_output, d_input);
+        shared_memory_fft<FFT_64_forward><<<gridSize, blockSize>>>(d_output, d_input);
         break;
 
     case 128:
-        shared_memory_fft<FFT_128_forward_noreorder><<<gridSize, blockSize>>>(d_output, d_input);
+        shared_memory_fft<FFT_128_forward><<<gridSize, blockSize>>>(d_output, d_input);
         break;
 
     case 256:
-        shared_memory_fft<FFT_256_forward_noreorder><<<gridSize, blockSize>>>(d_output, d_input);
+        shared_memory_fft<FFT_256_forward><<<gridSize, blockSize>>>(d_output, d_input);
         break;
 
     case 512:
-        shared_memory_fft<FFT_512_forward_noreorder><<<gridSize, blockSize>>>(d_output, d_input);
+        shared_memory_fft<FFT_512_forward><<<gridSize, blockSize>>>(d_output, d_input);
         break;
 
     case 1024:
-        shared_memory_fft<FFT_1024_forward_noreorder><<<gridSize, blockSize>>>(d_output, d_input);
+        shared_memory_fft<FFT_1024_forward><<<gridSize, blockSize>>>(d_output, d_input);
         break;
 
     case 2048:
-        shared_memory_fft<FFT_2048_forward_noreorder><<<gridSize, blockSize>>>(d_output, d_input);
+        shared_memory_fft<FFT_2048_forward><<<gridSize, blockSize>>>(d_output, d_input);
         break;
 
     case 4096:
-        shared_memory_fft<FFT_4096_forward_noreorder><<<gridSize, blockSize>>>(d_output, d_input);
+        shared_memory_fft<FFT_4096_forward><<<gridSize, blockSize>>>(d_output, d_input);
         break;
 
     default:
@@ -692,10 +680,11 @@ std::vector<std::complex<float>> _manual_fft_impl(std::vector<std::complex<float
     CUDA_RT_CALL(cudaFree(d_output));
 
     printf("C++ SIDE: ");
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < 4; ++i)
+    {
         printf("(%g + %g) ", output[i].real(), output[i].imag());
     }
-	printf("\n");
+    printf("\n");
 
     return output;
 }

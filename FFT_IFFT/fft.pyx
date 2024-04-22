@@ -3,7 +3,7 @@ from libcpp.complex cimport complex as cpp_complex
 
 cdef extern from "fft.h":
 	vector[cpp_complex[float]] _fft_cpu(vector[cpp_complex[float]] input_signal)
-	vector[cpp_complex[float]] _fft_cuda_reference(vector[cpp_complex[float]] input_signal, int fft_size)
+	vector[cpp_complex[float]] _fft_cuda_reference(vector[cpp_complex[float]] input_signal)
 	vector[cpp_complex[float]] _forward_fft_R2C(vector[float] input)
 	vector[cpp_complex[float]] _forward_fft_C2C(vector[cpp_complex[float]] input)
 	vector[cpp_complex[float]] _manual_fft_impl(vector[cpp_complex[float]] input, int fft_size)
@@ -14,10 +14,9 @@ def fft(input_signal):
 	cdef vector[cpp_complex[float]] signal = input_signal
 	return _fft_cpu(signal)
 
-def fft_reference_gpu(input_signal, fft_size):
+def fft_reference_gpu(input_signal):
 	cdef vector[cpp_complex[float]] signal = input_signal
-	cdef int size = fft_size
-	return _fft_cuda_reference(signal, size)
+	return _fft_cuda_reference(signal)
 
 def MKL_forward_fft_R2C(input_signal):
 	cdef vector[float] signal = input_signal
