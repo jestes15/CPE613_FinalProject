@@ -332,7 +332,7 @@ __device__ __inline__ void reorder_4096(float2 *s_input, float2 *A_DFT_value, fl
     reorder_128<const_params>(s_input, A_DFT_value, B_DFT_value, C_DFT_value, D_DFT_value);
 }
 
-template <class const_params> __device__ void do_SMFFT_CT_DIT(float2 *s_input)
+template <class const_params> __device__ void execute_shared_memory_fft(float2 *s_input)
 {
     float2 A_DFT_value, B_DFT_value, C_DFT_value, D_DFT_value;
     float2 W;
@@ -370,11 +370,9 @@ template <class const_params> __device__ void do_SMFFT_CT_DIT(float2 *s_input)
             reorder_4096<const_params>(s_input, &A_DFT_value, &B_DFT_value, &C_DFT_value, &D_DFT_value);
     }
 
-    //----> FFT
     PoT = 1;
     PoTp1 = 2;
 
-    //--> First iteration
     itemp = local_id & 1;
     parity = (1 - itemp * 2);
 
@@ -387,9 +385,10 @@ template <class const_params> __device__ void do_SMFFT_CT_DIT(float2 *s_input)
     D_DFT_value.x = parity * D_DFT_value.x + shfl_xor(&D_DFT_value.x, 1);
     D_DFT_value.y = parity * D_DFT_value.y + shfl_xor(&D_DFT_value.y, 1);
 
-    //--> Second through Fifth iteration (no synchronization)
     PoT = 2;
     PoTp1 = 4;
+
+	#pragma unroll
     for (q = 1; q < 5; q++)
     {
         m_param = (local_id & (PoTp1 - 1));
@@ -508,7 +507,6 @@ template <class const_params> __device__ void do_SMFFT_CT_DIT(float2 *s_input)
         PoTp1 = PoTp1 << 1;
     }
 
-    // last iteration
     if (const_params::fft_exp > 6)
     {
         __syncthreads();
@@ -555,7 +553,7 @@ template <class const_params> __device__ void do_SMFFT_CT_DIT(float2 *s_input)
     }
 }
 
-template <class const_params> __global__ void SMFFT_DIT_external(float2 *d_input, float2 *d_output)
+template <class const_params> __global__ void shared_memory_fft(float2 *d_input, float2 *d_output)
 {
     __shared__ float2 s_input[const_params::fft_sm_required];
 
@@ -571,34 +569,6 @@ template <class const_params> __global__ void SMFFT_DIT_external(float2 *d_input
     do_SMFFT_CT_DIT<const_params>(s_input);
 
     __syncthreads();
-    d_output[threadIdx.x + blockIdx.x * const_params::fft_length] = s_input[threadIdx.x];
-    d_output[threadIdx.x + blockIdx.x * const_params::fft_length + const_params::fft_length_quarter] =
-        s_input[threadIdx.x + const_params::fft_length_quarter];
-    d_output[threadIdx.x + blockIdx.x * const_params::fft_length + const_params::fft_length_half] =
-        s_input[threadIdx.x + const_params::fft_length_half];
-    d_output[threadIdx.x + blockIdx.x * const_params::fft_length + const_params::fft_length_three_quarters] =
-        s_input[threadIdx.x + const_params::fft_length_three_quarters];
-}
-
-template <class const_params> __global__ void SMFFT_DIT_multiple(float2 *d_input, float2 *d_output)
-{
-    __shared__ float2 s_input[const_params::fft_sm_required];
-
-    s_input[threadIdx.x] = d_input[threadIdx.x + blockIdx.x * const_params::fft_length];
-    s_input[threadIdx.x + const_params::fft_length_quarter] =
-        d_input[threadIdx.x + blockIdx.x * const_params::fft_length + const_params::fft_length_quarter];
-    s_input[threadIdx.x + const_params::fft_length_half] =
-        d_input[threadIdx.x + blockIdx.x * const_params::fft_length + const_params::fft_length_half];
-    s_input[threadIdx.x + const_params::fft_length_three_quarters] =
-        d_input[threadIdx.x + blockIdx.x * const_params::fft_length + const_params::fft_length_three_quarters];
-
-    __syncthreads();
-    for (int f = 0; f < NREUSES; f++)
-    {
-        do_SMFFT_CT_DIT<const_params>(s_input);
-    }
-    __syncthreads();
-
     d_output[threadIdx.x + blockIdx.x * const_params::fft_length] = s_input[threadIdx.x];
     d_output[threadIdx.x + blockIdx.x * const_params::fft_length + const_params::fft_length_quarter] =
         s_input[threadIdx.x + const_params::fft_length_quarter];

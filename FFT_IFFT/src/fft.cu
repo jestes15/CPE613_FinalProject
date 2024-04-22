@@ -93,11 +93,85 @@ int _fft_backend(const std::complex<float> *x, std::complex<float> *Y, uint32_t 
     return EXIT_SUCCESS;
 }
 
+__global__ void fft_kernel(const cuFloatComplex *x, cuFloatComplex *Y, uint32_t N, int logN)
+{
+    uint32_t idx = threadIdx.x;
+    uint32_t i = idx + blockIdx.x * blockDim.x;
+    uint32_t rev;
+    cuFloatComplex a, twiddle, b;
+
+	int mh, k, j, kj;
+    float tr, ti;
+
+    rev = reverse_bits_gpu(2 * i);
+    rev = rev >> (32 - logN);
+    Y[2 * i] = x[rev];
+
+    rev = reverse_bits_gpu(2 * i + 1);
+    rev = rev >> (32 - logN);
+    Y[2 * i + 1] = x[rev];
+
+    __syncthreads();
+
+    for (int s = 1; s <= logN; s++)
+    {
+        mh = 1 << (s - 1);
+        k = idx / mh * (1 << s);
+        j = idx % mh;
+        kj = k + j;
+
+        a = Y[kj];
+
+        sincosf(-(float)M_PI * j / mh, &ti, &tr);
+        twiddle = make_cuFloatComplex(tr, ti);
+        b = cuCmulf(twiddle, Y[kj + mh]);
+        Y[kj] = cuCaddf(a, b);
+        Y[kj + mh] = cuCsubf(a, b);
+
+        __syncthreads();
+    }
+}
+
 std::vector<std::complex<float>> _fft_cpu(std::vector<std::complex<float>> input_signal)
 {
     std::vector<std::complex<float>> output(input_signal.size());
     _fft_backend(input_signal.data(), output.data(), input_signal.size());
     return output;
+}
+
+std::vector<std::complex<float>> _fft_cuda_reference(std::vector<std::complex<float>> input_signal, int polling_rate)
+{
+    cufftHandle plan;
+    cudaStream_t stream = NULL;
+
+    std::vector<std::complex<float>> output_signal(input_signal.size());
+
+    cufftComplex *d_data = nullptr;
+
+    CUFFT_CALL(cufftCreate(&plan));
+    CUFFT_CALL(cufftPlan1d(&plan, input_signal.size(), CUFFT_C2C, 2));
+
+    CUDA_RT_CALL(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
+    CUFFT_CALL(cufftSetStream(plan, stream));
+
+    // Create device data arrays
+    CUDA_RT_CALL(cudaMalloc(reinterpret_cast<void **>(&d_data), sizeof(std::complex<float>) * input_signal.size()));
+    CUDA_RT_CALL(cudaMemcpyAsync(d_data, input_signal.data(), sizeof(std::complex<float>) * input_signal.size(),
+                                 cudaMemcpyHostToDevice, stream));
+
+    CUFFT_CALL(cufftExecC2C(plan, d_data, d_data, CUFFT_FORWARD));
+
+    CUDA_RT_CALL(cudaMemcpyAsync(output_signal.data(), d_data, sizeof(std::complex<float>) * output_signal.size(),
+                                 cudaMemcpyDeviceToHost, stream));
+
+    CUDA_RT_CALL(cudaStreamSynchronize(stream));
+
+    CUDA_RT_CALL(cudaFree(d_data))
+    CUFFT_CALL(cufftDestroy(plan));
+    CUDA_RT_CALL(cudaStreamDestroy(stream));
+    CUDA_RT_CALL(cudaDeviceReset());
+
+    return output_signal;
 }
 
 std::vector<std::complex<float>> _fft_cuda_reference(std::vector<std::complex<float>> input_signal, int polling_rate)
