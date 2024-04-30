@@ -80,7 +80,9 @@ def customize_compiler_for_nvcc(self):
             # translated from the extra_compile_args in the Extension class
             postargs = extra_postargs['nvcc']
         else:
-            postargs = extra_postargs['gcc']
+            self.set_executable(
+                'compiler_so', '/opt/intel/oneapi/compiler/2024.1/bin/icpx')
+            postargs = extra_postargs['icpx']
 
         super(obj, src, ext, cc_args, postargs, pp_opts)
         # Reset the default compiler_so, which we might have changed for cuda
@@ -107,14 +109,15 @@ except AttributeError:
 
 
 ext = Extension('custom_fft',
-                sources=['src/fft.cu', 'src/fft_optimization.cu', 'src/mkl_fft.cpp', 'fft.pyx'],
+                sources=['src/fft.cu', 'src/fft_optimization.cu',
+                         'src/mkl_fft.cpp', 'fft.pyx'],
                 library_dirs=[CUDA['lib64']],
                 libraries=['cudart', 'cufft'],
                 language='c++',
                 runtime_library_dirs=[CUDA['lib64']],
                 extra_compile_args={
-                    'gcc': ['-m64', '-march=native', '-I/opt/intel/oneapi/mkl/latest/include'],
-                    'nvcc': ['-I/opt/intel/oneapi/mkl/latest/include', '-L/opt/intel/oneapi/mkl/latest/lib', 
+                    'icpx': ['-m64', '-march=native', '-I/opt/intel/oneapi/mkl/latest/include', '-fPIC'],
+                    'nvcc': ['-I/opt/intel/oneapi/mkl/latest/include', '-L/opt/intel/oneapi/mkl/latest/lib',
                              '-arch=sm_89', '-O3', '--ptxas-options=-v', '-c',
                              '--compiler-options', "'-fPIC'"
                              ]
