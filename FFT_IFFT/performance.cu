@@ -2,10 +2,11 @@
 #include <iostream>
 #include <vector>
 
-#include <cuda_runtime.h>
 #include <cuComplex.h>
+#include <cuda_runtime.h>
 
 std::vector<std::complex<float>> _manual_fft_impl(std::vector<std::complex<float>> input, int fft_size);
+std::vector<std::complex<float>> _manual_fft_impl2(std::vector<std::complex<float>> input_signal, int fft_size);
 std::vector<std::complex<float>> _fft_cpu(std::vector<std::complex<float>> input_signal);
 std::vector<std::complex<float>> _fft_cuda_reference(std::vector<std::complex<float>> input_signal);
 
@@ -15,13 +16,14 @@ __global__ void _fill_with_signal(cuFloatComplex *signal, int size, int fs, int 
     if (idx < size)
     {
         float t = (float)idx / fs;
-        signal[idx] = make_cuFloatComplex(cosf(2 * M_PI * f1 * t) + cosf(2 * M_PI * f2 * t) + cosf(2 * M_PI * f3 * t), 0);
+        signal[idx] =
+            make_cuFloatComplex(cosf(2 * M_PI * f1 * t) + cosf(2 * M_PI * f2 * t) + cosf(2 * M_PI * f3 * t), 0);
     }
 }
 
 int main()
 {
-    std::vector<std::complex<float>> input(4096), output_host(4096), output_cuda_ref(4096), output_manual(4096);
+    std::vector<std::complex<float>> input(4096), output_host(4096), output_cuda_ref(4096), output_manual(4096), output_manual2(4096);
 
     // Allocate memory on the device
     cuFloatComplex *d_input;
@@ -40,6 +42,7 @@ int main()
     output_host = _fft_cpu(input);
     output_cuda_ref = _fft_cuda_reference(input);
     output_manual = _manual_fft_impl(input, 4096);
+	output_manual2 = _manual_fft_impl2(input, 4096);
 
     // Compare the results
     float max_diff = 0;

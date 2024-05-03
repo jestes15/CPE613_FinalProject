@@ -132,6 +132,32 @@ __global__ void fft_kernel(const cuFloatComplex *x, cuFloatComplex *Y, uint32_t 
     }
 }
 
+std::vector<std::complex<float>> _manual_fft_impl2(std::vector<std::complex<float>> input_signal, int fft_size)
+{
+    size_t input_size = input_signal.size();
+    size_t output_size = input_signal.size();
+
+    std::vector<std::complex<float>> output(output_size);
+
+    //----------> Memory allocation
+    cuComplex *d_input;
+    cuComplex *d_output;
+    CUDA_RT_CALL(cudaMalloc((void **)&d_input, sizeof(cuComplex) * input_size));
+    CUDA_RT_CALL(cudaMalloc((void **)&d_output, sizeof(cuComplex) * output_size));
+    CUDA_RT_CALL(cudaMemcpy(d_input, input_signal.data(), input_size * sizeof(cuComplex), cudaMemcpyHostToDevice));
+
+    dim3 gridSize((input_signal.size() / fft_size), 1, 1);
+    dim3 blockSize(fft_size / 4, 1, 1);
+
+    fft_kernel<<<gridSize, blockSize>>>(d_input, d_output, fft_size, log2(fft_size));
+
+    CUDA_RT_CALL(cudaMemcpy(output.data(), d_output, output_size * sizeof(cuComplex), cudaMemcpyDeviceToHost));
+    CUDA_RT_CALL(cudaFree(d_input));
+    CUDA_RT_CALL(cudaFree(d_output));
+
+    return output;
+}
+
 std::vector<std::complex<float>> _fft_cpu(std::vector<std::complex<float>> input_signal)
 {
     std::vector<std::complex<float>> output(input_signal.size());

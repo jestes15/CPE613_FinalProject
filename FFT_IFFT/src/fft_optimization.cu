@@ -9,6 +9,9 @@
 #include "fft.h"
 #include "fft_param.cuh"
 
+#define M_2PI 6.28318530717958647692f      /* 2 * pi */
+#define M_N_2PI (-6.28318530717958647692f) /* -2 * pi */
+
 // CUDA API error checking
 #ifndef CUDA_RT_CALL
 #define CUDA_RT_CALL(call)                                                                                             \
@@ -26,14 +29,15 @@
 __device__ __inline__ cuComplex Get_W_value(int N, int m)
 {
     cuComplex ctemp;
-    sincosf(-6.283185308f * fdividef((float)m, (float)N), &ctemp.y, &ctemp.x);
+    sincosf(M_N_2PI * fdividef((float)m, (float)N), &ctemp.y, &ctemp.x);
     return (ctemp);
 }
 
 __device__ __inline__ cuComplex Get_W_value_inverse(int N, int m)
 {
     cuComplex ctemp;
-    sincosf(6.283185308f * fdividef((float)m, (float)N), &ctemp.y, &ctemp.x);
+
+    sincosf(M_2PI * fdividef((float)m, (float)N), &ctemp.y, &ctemp.x);
     return (ctemp);
 }
 
@@ -46,11 +50,6 @@ __device__ __inline__ float shfl_xor(float *value, int par)
 {
     return (__shfl_xor_sync(0xffffffff, (*value), par));
 }
-
-// __device__ __inline__ float shfl_down(float *value, int par)
-// {
-//     return (__shfl_down_sync(0xffffffff, (*value), par));
-// }
 
 __device__ __inline__ void reorder_4_register(cuComplex *A_DFT_value, cuComplex *B_DFT_value, cuComplex *C_DFT_value,
                                               cuComplex *D_DFT_value)
@@ -143,7 +142,7 @@ __device__ __inline__ void reorder_4096(cuComplex *s_input, cuComplex *A_DFT_val
     __syncthreads();
     // unsigned int sm_read_pos = (local_id&31)*33 + warp_id*2;
     unsigned int sm_read_pos = local_id * 33 + warp_id;
-    *A_DFT_value = s_input[sm_read_pos + 0];
+    *A_DFT_value = s_input[sm_read_pos];
     *B_DFT_value = s_input[sm_read_pos + 1056];
     *C_DFT_value = s_input[sm_read_pos + 2112];
     *D_DFT_value = s_input[sm_read_pos + 3168];
@@ -171,10 +170,6 @@ template <class const_params> __device__ void execute_fft(cuComplex *s_input)
     D_DFT_value = s_input[local_id + (warp_id << 2) * const_params::warp + 3 * const_params::warp];
 
     reorder_4096<const_params>(s_input, &A_DFT_value, &B_DFT_value, &C_DFT_value, &D_DFT_value);
-
-    //----> FFT
-    PoT = 1;
-    PoTp1 = 2;
 
     //--> First iteration
     itemp = local_id & 1;
@@ -244,13 +239,13 @@ template <class const_params> __device__ void execute_fft(cuComplex *s_input)
 
         Aftemp = s_input[A_read_index];
         Bftemp = s_input[B_read_index];
+        Cftemp = s_input[C_read_index];
+        Dftemp = s_input[D_read_index];
+
         A_DFT_value.x = Aftemp.x + W.x * Bftemp.x - W.y * Bftemp.y;
         A_DFT_value.y = Aftemp.y + W.x * Bftemp.y + W.y * Bftemp.x;
         B_DFT_value.x = Aftemp.x - W.x * Bftemp.x + W.y * Bftemp.y;
         B_DFT_value.y = Aftemp.y - W.x * Bftemp.y - W.y * Bftemp.x;
-
-        Cftemp = s_input[C_read_index];
-        Dftemp = s_input[D_read_index];
         C_DFT_value.x = Cftemp.x + W.x * Dftemp.x - W.y * Dftemp.y;
         C_DFT_value.y = Cftemp.y + W.x * Dftemp.y + W.y * Dftemp.x;
         D_DFT_value.x = Cftemp.x - W.x * Dftemp.x + W.y * Dftemp.y;
@@ -281,13 +276,13 @@ template <class const_params> __device__ void execute_fft(cuComplex *s_input)
 
         Aftemp = s_input[A_read_index];
         Bftemp = s_input[B_read_index];
+        Cftemp = s_input[C_read_index];
+        Dftemp = s_input[D_read_index];
+
         A_DFT_value.x = Aftemp.x + W.x * Bftemp.x - W.y * Bftemp.y;
         A_DFT_value.y = Aftemp.y + W.x * Bftemp.y + W.y * Bftemp.x;
         B_DFT_value.x = Aftemp.x - W.x * Bftemp.x + W.y * Bftemp.y;
         B_DFT_value.y = Aftemp.y - W.x * Bftemp.y - W.y * Bftemp.x;
-
-        Cftemp = s_input[C_read_index];
-        Dftemp = s_input[D_read_index];
         C_DFT_value.x = Cftemp.x + W.x * Dftemp.x - W.y * Dftemp.y;
         C_DFT_value.y = Cftemp.y + W.x * Dftemp.y + W.y * Dftemp.x;
         D_DFT_value.x = Cftemp.x - W.x * Dftemp.x + W.y * Dftemp.y;
@@ -317,13 +312,14 @@ template <class const_params> __device__ void execute_fft(cuComplex *s_input)
 
         Aftemp = s_input[A_read_index];
         Bftemp = s_input[B_read_index];
+        Cftemp = s_input[C_read_index];
+        Dftemp = s_input[D_read_index];
+
         A_DFT_value.x = Aftemp.x + W.x * Bftemp.x - W.y * Bftemp.y;
         A_DFT_value.y = Aftemp.y + W.x * Bftemp.y + W.y * Bftemp.x;
         B_DFT_value.x = Aftemp.x - W.x * Bftemp.x + W.y * Bftemp.y;
         B_DFT_value.y = Aftemp.y - W.x * Bftemp.y - W.y * Bftemp.x;
 
-        Cftemp = s_input[C_read_index];
-        Dftemp = s_input[D_read_index];
         if (const_params::fft_direction)
         {
             C_DFT_value.x = Cftemp.x - W.y * Dftemp.x - W.x * Dftemp.y;
@@ -345,7 +341,6 @@ template <class const_params> __device__ void execute_fft(cuComplex *s_input)
         s_input[D_read_index] = D_DFT_value;
     }
 }
-
 template <class const_params> __global__ void shared_memory_fft(cuComplex *d_output, cuComplex *d_input)
 {
     __shared__ cuComplex s_input[const_params::fft_shared_memory_required];
