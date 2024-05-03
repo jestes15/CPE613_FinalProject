@@ -114,7 +114,7 @@ ext = Extension('custom_fft',
                 runtime_library_dirs=[CUDA['lib64']],
                 extra_compile_args={
                     'gcc': ['-m64', '-march=native', '-I/opt/intel/oneapi/mkl/latest/include'],
-                    'nvcc': ['-I/opt/intel/oneapi/mkl/latest/include', '-L/opt/intel/oneapi/mkl/latest/lib', 
+                    'nvcc': ['-lineinfo', '-I/opt/intel/oneapi/mkl/latest/include', '-L/opt/intel/oneapi/mkl/latest/lib',
                              '-arch=sm_89', '-O3', '--ptxas-options=-v', '-c',
                              '--compiler-options', "'-fPIC'"
                              ]
