@@ -16,5 +16,7 @@ std::vector<float> _backward_fft_C2R(std::vector<std::complex<float>> in, int or
 std::vector<float> _backward_fft_C2R_Complex(std::vector<std::complex<float>> in);
 
 std::vector<std::complex<float>> _manual_fft_impl(std::vector<std::complex<float>> input, int fft_size);
-
+std::vector<std::complex<float>> _manual_fft_impl2(std::vector<std::complex<float>> input, int fft_size);
+std::vector<float> _calculate_relative_error(int size, std::vector<std::complex<float>> reference_solution,
+                                             std::vector<std::complex<float>> computed_solution);
 #endif

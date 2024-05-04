@@ -112,11 +112,11 @@ ext = Extension('custom_fft',
                 sources=['src/fft.cu', 'src/fft_optimization.cu',
                          'src/mkl_fft.cpp', 'fft.pyx'],
                 library_dirs=[CUDA['lib64']],
-                libraries=['cudart', 'cufft'],
+                libraries=['cudart', 'cufft', 'cublas'],
                 language='c++',
                 runtime_library_dirs=[CUDA['lib64']],
                 extra_compile_args={
-                    'icpx': ['-m64', '-march=native', '-I/opt/intel/oneapi/mkl/latest/include'],
+                    'icpx': ['-m64', '-march=native', '-I/opt/intel/oneapi/mkl/latest/include', '-fPIC'],
                     'nvcc': ['-lineinfo', '-I/opt/intel/oneapi/mkl/latest/include', '-L/opt/intel/oneapi/mkl/latest/lib',
                              '-arch=sm_89', '-O3', '--ptxas-options=-v', '-c',
                              '--compiler-options', "'-fPIC'"

@@ -87,6 +87,8 @@
 		"hash_map": "cpp",
 		"alignedvector3": "cpp",
 		"nnls": "cpp",
-		"*.inc": "cpp"
+		"*.inc": "cpp",
+		"condition_variable": "cpp",
+		"thread": "cpp"
 	}
 }
