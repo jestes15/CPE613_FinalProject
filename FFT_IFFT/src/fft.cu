@@ -180,7 +180,6 @@ std::vector<std::complex<float>> _manual_fft_impl2(std::vector<std::complex<floa
 
     std::vector<std::complex<float>> output(output_size);
 
-    //----------> Memory allocation
     cuComplex *d_input;
     cuComplex *d_output;
     CUDA_RT_CALL(cudaMalloc((void **)&d_input, sizeof(cuComplex) * input_size));

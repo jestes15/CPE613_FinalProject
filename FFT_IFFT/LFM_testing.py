@@ -23,9 +23,7 @@ fft_c2c_manual_impl = manual_fft_impl(combined_signals.astype(complex), 4096)
 
 relative_error = calculate_relative_error(
     len(combined_signals), fft_cuda, fft_c2c_manual_impl)
-print(f"Relative Error between CUDA and MKL C2C: {relative_error}")
-print(f"First four elements of the the CUDA Result: {fft_cuda[0:4]}")
-print(f"First four elements of the the MKL Result: {fft_c2c_manual_impl[0:4]}")
+print(f"Relative Error between CUDA and the Shared Memory Impl: {relative_error[2]}")
 
 N_custom = len(fft_sig)
 n_custom = np.arange(N_custom)

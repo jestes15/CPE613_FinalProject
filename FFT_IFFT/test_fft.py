@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy.fft import fft as np_fft
 from scipy.signal import chirp
-from custom_fft import fft, fft_reference_gpu, MKL_forward_fft_R2C, MKL_forward_fft_C2C, manual_fft_impl  # type: ignore
+from custom_fft import fft, fft_reference_gpu, MKL_forward_fft_R2C, MKL_forward_fft_C2C, manual_fft_impl, calculate_relative_error  # type: ignore
 
 Fs = 4096
 time = np.arange(0, 1, 1/Fs)
@@ -48,6 +48,11 @@ fft_cuda = fft_reference_gpu(combined_signals.astype(complex))
 fft_r2c_mkl = MKL_forward_fft_R2C(combined_signals)
 fft_c2c_mkl = MKL_forward_fft_C2C(combined_signals.astype(complex))
 fft_c2c_manual_impl = manual_fft_impl(combined_signals.astype(complex), 4096)
+
+relative_error = calculate_relative_error(
+    len(combined_signals), fft_cuda, fft_c2c_manual_impl)
+print(
+    f"Relative Error between CUDA and the Shared Memory Impl: {relative_error[2]}")
 
 N_custom = len(fft_sig)
 n_custom = np.arange(N_custom)

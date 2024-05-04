@@ -29,15 +29,14 @@
 __device__ __inline__ cuComplex Get_W_value(int N, int m)
 {
     cuComplex ctemp;
-    sincosf(M_N_2PI * fdividef((float)m, (float)N), &ctemp.y, &ctemp.x);
+    sincosf(M_N_2PI * fdividef(__int2float_rd(m), __int2float_rd(N)), &ctemp.y, &ctemp.x);
     return (ctemp);
 }
 
 __device__ __inline__ cuComplex Get_W_value_inverse(int N, int m)
 {
     cuComplex ctemp;
-
-    sincosf(M_2PI * fdividef((float)m, (float)N), &ctemp.y, &ctemp.x);
+    sincosf(M_2PI * fdividef(__int2float_rd(m), __int2float_rd(N)), &ctemp.y, &ctemp.x);
     return (ctemp);
 }
 
