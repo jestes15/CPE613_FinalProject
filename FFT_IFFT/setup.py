@@ -81,7 +81,7 @@ def customize_compiler_for_nvcc(self):
             postargs = extra_postargs['nvcc']
         else:
             self.set_executable(
-                'compiler_so', '/opt/intel/oneapi/compiler/2024.1/bin/icpx')
+                'compiler_so', '/opt/intel/oneapi/compiler/latest/bin/icpx')
             postargs = extra_postargs['icpx']
 
         super(obj, src, ext, cc_args, postargs, pp_opts)
